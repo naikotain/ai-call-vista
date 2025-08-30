@@ -1,0 +1,75 @@
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card } from "@/components/ui/card";
+
+export const FiltersSection = () => {
+  return (
+    <Card className="p-6 mb-6 shadow-metric">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div>
+          <label className="text-sm font-medium text-muted-foreground mb-2 block">
+            Agente
+          </label>
+          <Select defaultValue="all">
+            <SelectTrigger>
+              <SelectValue placeholder="Seleccionar agente" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los agentes</SelectItem>
+              <SelectItem value="agent1">Agente 1</SelectItem>
+              <SelectItem value="agent2">Agente 2</SelectItem>
+              <SelectItem value="agent3">Agente 3</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div>
+          <label className="text-sm font-medium text-muted-foreground mb-2 block">
+            Tipo de llamada
+          </label>
+          <Select defaultValue="all">
+            <SelectTrigger>
+              <SelectValue placeholder="Tipo de llamada" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas las llamadas</SelectItem>
+              <SelectItem value="inbound">Entrantes</SelectItem>
+              <SelectItem value="outbound">Salientes</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div>
+          <label className="text-sm font-medium text-muted-foreground mb-2 block">
+            Estado
+          </label>
+          <Select defaultValue="all">
+            <SelectTrigger>
+              <SelectValue placeholder="Estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los estados</SelectItem>
+              <SelectItem value="successful">Exitosas</SelectItem>
+              <SelectItem value="failed">Fallidas</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div>
+          <label className="text-sm font-medium text-muted-foreground mb-2 block">
+            Canal
+          </label>
+          <Select defaultValue="all">
+            <SelectTrigger>
+              <SelectValue placeholder="Canal" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los canales</SelectItem>
+              <SelectItem value="phone">Teléfono</SelectItem>
+              <SelectItem value="email">Email</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </Card>
+  );
+};
