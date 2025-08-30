@@ -1,39 +1,15 @@
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Legend } from 'recharts';
 
-const data = [
-  {
-    metric: 'Tasa de éxito',
-    'Agente 1': 85,
-    'Agente 2': 75,
-    'Agente 3': 90,
-  },
-  {
-    metric: 'Tasa de transferencia',
-    'Agente 1': 15,
-    'Agente 2': 10,
-    'Agente 3': 5,
-  },
-  {
-    metric: 'Duración promedio',
-    'Agente 1': 70,
-    'Agente 2': 85,
-    'Agente 3': 65,
-  },
-  {
-    metric: 'Satisfacción cliente',
-    'Agente 1': 80,
-    'Agente 2': 70,
-    'Agente 3': 90,
-  },
-  {
-    metric: 'Llamadas/hora',
-    'Agente 1': 85,
-    'Agente 2': 75,
-    'Agente 3': 80,
-  },
-];
+interface AgentPerformanceChartProps {
+  data: Array<{
+    metric: string;
+    'Agente 1': number;
+    'Agente 2': number;
+    'Agente 3': number;
+  }>;
+}
 
-export const AgentPerformanceChart = () => {
+export const AgentPerformanceChart = ({ data }: AgentPerformanceChartProps) => {
   return (
     <div className="h-96 w-full">
       <ResponsiveContainer width="100%" height="100%">

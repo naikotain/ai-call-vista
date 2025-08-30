@@ -1,16 +1,10 @@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
 
-const data = [
-  { name: 'Lun', calls: 120 },
-  { name: 'Mar', calls: 145 },
-  { name: 'Mié', calls: 132 },
-  { name: 'Jue', calls: 158 },
-  { name: 'Vie', calls: 140 },
-  { name: 'Sáb', calls: 95 },
-  { name: 'Dom', calls: 75 },
-];
+interface CallVolumeChartProps {
+  data: Array<{ name: string; calls: number }>;
+}
 
-export const CallVolumeChart = () => {
+export const CallVolumeChart = ({ data }: CallVolumeChartProps) => {
   return (
     <div className="h-80 w-full">
       <ResponsiveContainer width="100%" height="100%">

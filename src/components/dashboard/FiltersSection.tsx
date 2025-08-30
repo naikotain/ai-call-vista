@@ -1,7 +1,14 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
+import { DashboardFilters } from "@/hooks/useDashboardData";
 
-export const FiltersSection = () => {
+interface FiltersSectionProps {
+  filters: DashboardFilters;
+  onFilterChange: (filters: Partial<DashboardFilters>) => void;
+  loading: boolean;
+}
+
+export const FiltersSection = ({ filters, onFilterChange, loading }: FiltersSectionProps) => {
   return (
     <Card className="p-6 mb-6 shadow-metric">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -9,7 +16,11 @@ export const FiltersSection = () => {
           <label className="text-sm font-medium text-muted-foreground mb-2 block">
             Agente
           </label>
-          <Select defaultValue="all">
+          <Select 
+            value={filters.agent} 
+            onValueChange={(value) => onFilterChange({ agent: value })}
+            disabled={loading}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Seleccionar agente" />
             </SelectTrigger>
@@ -26,7 +37,11 @@ export const FiltersSection = () => {
           <label className="text-sm font-medium text-muted-foreground mb-2 block">
             Tipo de llamada
           </label>
-          <Select defaultValue="all">
+          <Select 
+            value={filters.callType} 
+            onValueChange={(value) => onFilterChange({ callType: value })}
+            disabled={loading}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Tipo de llamada" />
             </SelectTrigger>
@@ -42,7 +57,11 @@ export const FiltersSection = () => {
           <label className="text-sm font-medium text-muted-foreground mb-2 block">
             Estado
           </label>
-          <Select defaultValue="all">
+          <Select 
+            value={filters.status} 
+            onValueChange={(value) => onFilterChange({ status: value })}
+            disabled={loading}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Estado" />
             </SelectTrigger>
@@ -58,7 +77,11 @@ export const FiltersSection = () => {
           <label className="text-sm font-medium text-muted-foreground mb-2 block">
             Canal
           </label>
-          <Select defaultValue="all">
+          <Select 
+            value={filters.channel} 
+            onValueChange={(value) => onFilterChange({ channel: value })}
+            disabled={loading}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Canal" />
             </SelectTrigger>

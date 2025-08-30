@@ -1,16 +1,10 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
-const data = [
-  { name: 'Lun', entrantes: 85, salientes: 35 },
-  { name: 'Mar', entrantes: 92, salientes: 53 },
-  { name: 'Mié', entrantes: 78, salientes: 54 },
-  { name: 'Jue', entrantes: 95, salientes: 63 },
-  { name: 'Vie', entrantes: 88, salientes: 52 },
-  { name: 'Sáb', entrantes: 60, salientes: 35 },
-  { name: 'Dom', entrantes: 45, salientes: 30 },
-];
+interface InboundOutboundChartProps {
+  data: Array<{ name: string; entrantes: number; salientes: number }>;
+}
 
-export const InboundOutboundChart = () => {
+export const InboundOutboundChart = ({ data }: InboundOutboundChartProps) => {
   return (
     <div className="h-80 w-full">
       <ResponsiveContainer width="100%" height="100%">

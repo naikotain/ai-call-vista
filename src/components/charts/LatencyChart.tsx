@@ -1,16 +1,10 @@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
 
-const data = [
-  { name: 'Lun', latency: 1.2 },
-  { name: 'Mar', latency: 1.5 },
-  { name: 'Mié', latency: 1.3 },
-  { name: 'Jue', latency: 1.1 },
-  { name: 'Vie', latency: 0.9 },
-  { name: 'Sáb', latency: 1.4 },
-  { name: 'Dom', latency: 1.6 },
-];
+interface LatencyChartProps {
+  data: Array<{ name: string; latency: number }>;
+}
 
-export const LatencyChart = () => {
+export const LatencyChart = ({ data }: LatencyChartProps) => {
   return (
     <div className="h-80 w-full">
       <ResponsiveContainer width="100%" height="100%">

@@ -10,8 +10,13 @@ import { SuccessByHourChart } from "@/components/charts/SuccessByHourChart";
 import { AgentPerformanceChart } from "@/components/charts/AgentPerformanceChart";
 import { SentimentDistributionChart } from "@/components/charts/SentimentDistributionChart";
 import { SentimentTrendChart } from "@/components/charts/SentimentTrendChart";
+import { DashboardData } from "@/hooks/useDashboardData";
 
-export const DashboardTabs = () => {
+interface DashboardTabsProps {
+  data: DashboardData;
+}
+
+export const DashboardTabs = ({ data }: DashboardTabsProps) => {
   return (
     <Tabs defaultValue="overview" className="w-full">
       <TabsList className="grid w-full grid-cols-4 mb-6">
@@ -29,7 +34,7 @@ export const DashboardTabs = () => {
                 <CardTitle>Volumen de Llamadas por Día</CardTitle>
               </CardHeader>
               <CardContent>
-                <CallVolumeChart />
+                <CallVolumeChart data={data.callVolume} />
               </CardContent>
             </Card>
           </div>
@@ -49,7 +54,7 @@ export const DashboardTabs = () => {
               <CardTitle>Duración Promedio de Llamadas (minutos)</CardTitle>
             </CardHeader>
             <CardContent>
-              <CallDurationChart />
+              <CallDurationChart data={data.callDuration} />
             </CardContent>
           </Card>
           <Card className="shadow-metric">
@@ -57,7 +62,7 @@ export const DashboardTabs = () => {
               <CardTitle>Latencia Promedio (segundos)</CardTitle>
             </CardHeader>
             <CardContent>
-              <LatencyChart />
+              <LatencyChart data={data.latency} />
             </CardContent>
           </Card>
         </div>
@@ -82,7 +87,7 @@ export const DashboardTabs = () => {
               <CardTitle>Llamadas Entrantes vs Salientes</CardTitle>
             </CardHeader>
             <CardContent>
-              <InboundOutboundChart />
+              <InboundOutboundChart data={data.inboundOutbound} />
             </CardContent>
           </Card>
         </div>
@@ -107,7 +112,7 @@ export const DashboardTabs = () => {
             <CardTitle>Comparativa de Agentes</CardTitle>
           </CardHeader>
           <CardContent>
-            <AgentPerformanceChart />
+            <AgentPerformanceChart data={data.agentPerformance} />
           </CardContent>
         </Card>
       </TabsContent>
@@ -123,7 +128,7 @@ export const DashboardTabs = () => {
               <CardTitle>Distribución de Sentimiento</CardTitle>
             </CardHeader>
             <CardContent>
-              <SentimentDistributionChart />
+              <SentimentDistributionChart data={data.sentiment} />
             </CardContent>
           </Card>
           <Card className="shadow-metric">

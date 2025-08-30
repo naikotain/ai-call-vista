@@ -1,16 +1,10 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-const data = [
-  { name: 'Lun', duration: 4.2 },
-  { name: 'Mar', duration: 5.1 },
-  { name: 'Mié', duration: 3.8 },
-  { name: 'Jue', duration: 4.5 },
-  { name: 'Vie', duration: 4.9 },
-  { name: 'Sáb', duration: 6.2 },
-  { name: 'Dom', duration: 5.7 },
-];
+interface CallDurationChartProps {
+  data: Array<{ name: string; duration: number }>;
+}
 
-export const CallDurationChart = () => {
+export const CallDurationChart = ({ data }: CallDurationChartProps) => {
   return (
     <div className="h-80 w-full">
       <ResponsiveContainer width="100%" height="100%">

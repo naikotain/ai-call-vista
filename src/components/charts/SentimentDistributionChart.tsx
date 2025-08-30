@@ -1,12 +1,10 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
-const data = [
-  { name: 'Positivo', value: 65, color: 'hsl(var(--success))' },
-  { name: 'Neutral', value: 25, color: 'hsl(var(--warning))' },
-  { name: 'Negativo', value: 10, color: 'hsl(var(--danger))' },
-];
+interface SentimentDistributionChartProps {
+  data: Array<{ name: string; value: number; color: string }>;
+}
 
-export const SentimentDistributionChart = () => {
+export const SentimentDistributionChart = ({ data }: SentimentDistributionChartProps) => {
   return (
     <div className="h-80 w-full">
       <ResponsiveContainer width="100%" height="100%">
