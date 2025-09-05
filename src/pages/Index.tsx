@@ -6,7 +6,7 @@ import { useDashboardData } from "@/hooks/useDashboardData";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const Index = () => {
-  const { data, loading, filters, updateData } = useDashboardData();
+  const { data, agents, loading, filters, updateData } = useDashboardData();
 
   if (!data && loading) {
     return (
@@ -59,6 +59,7 @@ const Index = () => {
         <FiltersSection 
           filters={filters}
           onFilterChange={updateData}
+          agents={agents}
           loading={loading}
         />
         

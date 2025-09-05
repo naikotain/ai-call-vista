@@ -1,14 +1,15 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
-import { DashboardFilters } from "@/hooks/useDashboardData";
+import { DashboardFilters, Agent } from "@/hooks/useDashboardData";
 
 interface FiltersSectionProps {
   filters: DashboardFilters;
   onFilterChange: (filters: Partial<DashboardFilters>) => void;
+  agents: Agent[];
   loading: boolean;
 }
 
-export const FiltersSection = ({ filters, onFilterChange, loading }: FiltersSectionProps) => {
+export const FiltersSection = ({ filters, onFilterChange, agents, loading }: FiltersSectionProps) => {
   return (
     <Card className="p-6 mb-6 shadow-metric">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -26,9 +27,11 @@ export const FiltersSection = ({ filters, onFilterChange, loading }: FiltersSect
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos los agentes</SelectItem>
-              <SelectItem value="agent1">Agente 1</SelectItem>
-              <SelectItem value="agent2">Agente 2</SelectItem>
-              <SelectItem value="agent3">Agente 3</SelectItem>
+              {agents.map((agent) => (
+                <SelectItem key={agent.id} value={agent.id}>
+                  {agent.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

@@ -273,6 +273,11 @@ async function fetchDataFromSupabase(agentFilter: string): Promise<DashboardData
   }
 }
 
+export interface Agent {
+  id: string;
+  name: string;
+}
+
 export interface DashboardFilters {
   agent: string;
   timeRange: string;
@@ -283,6 +288,7 @@ export interface DashboardFilters {
 
 export const useDashboardData = () => {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<DashboardFilters>({
     agent: 'all',
@@ -291,6 +297,25 @@ export const useDashboardData = () => {
     status: 'all',
     channel: 'all',
   });
+
+  // Fetch agents list
+  const fetchAgents = async () => {
+    try {
+      const { data: agentsData, error } = await supabase
+        .from('agents')
+        .select('id, name')
+        .order('name');
+      
+      if (error) {
+        console.error('Error fetching agents:', error);
+        return;
+      }
+      
+      setAgents(agentsData || []);
+    } catch (error) {
+      console.error('Error fetching agents:', error);
+    }
+  };
 
   const updateData = async (newFilters: Partial<DashboardFilters>) => {
     const updatedFilters = { ...filters, ...newFilters };
@@ -307,13 +332,15 @@ export const useDashboardData = () => {
     }
   };
 
-  // Load initial data
+  // Load initial data and agents
   useEffect(() => {
+    fetchAgents();
     updateData({});
   }, []);
 
   return {
     data,
+    agents,
     loading,
     filters,
     updateData,
