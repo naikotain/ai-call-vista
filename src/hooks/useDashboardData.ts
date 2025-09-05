@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface DashboardData {
@@ -19,6 +19,27 @@ export interface DashboardData {
   }>;
 }
 
+export interface CallEvent {
+  id: string;
+  call_id: string;
+  event_type: string;
+  event_data: any;
+  created_at: string;
+}
+
+export interface CallFinalState {
+  call_id: string;
+  status: string;
+  agent_id?: string;
+  duration?: number;
+  direction?: string;
+  channel?: string;
+  sentiment?: string;
+  started_at: string;
+  ended_at?: string;
+  latency?: number;
+}
+
 // Helper function to get day names in Spanish
 const getDayName = (date: Date): string => {
   const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
@@ -36,25 +57,135 @@ const getLast7Days = (): Date[] => {
   return days;
 };
 
-// Fetch data from Supabase
-async function fetchDataFromSupabase(agentFilter: string): Promise<DashboardData> {
-  try {
-    // Base query for calls
-    let callsQuery = supabase.from('calls').select(`
-      *,
-      agents(name)
-    `);
+// Function to reconstruct final call state from events
+const reconstructCallState = (events: CallEvent[]): CallFinalState => {
+  if (!events.length) {
+    throw new Error('No events provided');
+  }
 
-    // Apply agent filter if not 'all'
-    if (agentFilter !== 'all') {
-      callsQuery = callsQuery.eq('agent_id', agentFilter);
+  // Sort events by timestamp
+  const sortedEvents = events.sort((a, b) => 
+    new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
+
+  const callId = events[0].call_id;
+  const firstEvent = sortedEvents[0];
+  const lastEvent = sortedEvents[sortedEvents.length - 1];
+
+  // Initialize state
+  let finalState: CallFinalState = {
+    call_id: callId,
+    status: 'failed', // default status
+    started_at: firstEvent.created_at,
+  };
+
+  // Extract basic info from first event
+  if (firstEvent.event_data) {
+    finalState.agent_id = firstEvent.event_data.agent_id;
+    finalState.direction = firstEvent.event_data.direction || 'inbound';
+    finalState.channel = firstEvent.event_data.channel || 'phone';
+  }
+
+  // Analyze event sequence to determine final status
+  const eventTypes = sortedEvents.map(e => e.event_type);
+  let wasAnswered = false;
+  let wasTransferred = false;
+  let voicemailDetected = false;
+
+  for (const event of sortedEvents) {
+    switch (event.event_type) {
+      case 'call_answered':
+        wasAnswered = true;
+        break;
+      case 'call_transfer_initiated':
+      case 'transfer_initiated':
+        wasTransferred = true;
+        break;
+      case 'voicemail_detected':
+        voicemailDetected = true;
+        break;
+      case 'call_ended':
+        finalState.ended_at = event.created_at;
+        if (event.event_data) {
+          finalState.duration = event.event_data.duration;
+          finalState.sentiment = event.event_data.sentiment;
+        }
+        break;
     }
 
-    const { data: calls, error: callsError } = await callsQuery;
+    // Extract additional data from events
+    if (event.event_data) {
+      if (event.event_data.agent_id && !finalState.agent_id) {
+        finalState.agent_id = event.event_data.agent_id;
+      }
+      if (event.event_data.latency) {
+        finalState.latency = event.event_data.latency;
+      }
+    }
+  }
+
+  // Determine final status based on event sequence
+  if (voicemailDetected) {
+    finalState.status = 'voicemail';
+  } else if (wasTransferred) {
+    finalState.status = 'transferred';
+  } else if (wasAnswered) {
+    finalState.status = 'successful';
+  } else {
+    finalState.status = 'failed';
+  }
+
+  return finalState;
+};
+
+// Fetch data from Supabase using call_events
+async function fetchDataFromSupabase(agentFilter: string): Promise<DashboardData> {
+  try {
+    // Fetch all call events
+    let eventsQuery = supabase.from('call_events').select(`
+      id,
+      call_id,
+      event_type,
+      event_data,
+      created_at
+    `).order('created_at', { ascending: true });
+
+    const { data: events, error: eventsError } = await eventsQuery;
     
-    if (callsError) {
-      console.error('Error fetching calls:', callsError);
-      throw callsError;
+    if (eventsError) {
+      console.error('Error fetching call events:', eventsError);
+      throw eventsError;
+    }
+
+    if (!events || events.length === 0) {
+      console.log('No events found');
+      return getDefaultEmptyData();
+    }
+
+    // Group events by call_id
+    const eventsByCall = events.reduce((acc, event) => {
+      if (!acc[event.call_id]) {
+        acc[event.call_id] = [];
+      }
+      acc[event.call_id].push(event);
+      return acc;
+    }, {} as Record<string, CallEvent[]>);
+
+    // Reconstruct final state for each call
+    const callStates: CallFinalState[] = [];
+    for (const [callId, callEvents] of Object.entries(eventsByCall)) {
+      try {
+        const finalState = reconstructCallState(callEvents);
+        callStates.push(finalState);
+      } catch (error) {
+        console.warn(`Failed to reconstruct state for call ${callId}:`, error);
+      }
+    }
+
+    // Apply agent filter
+    let filteredCalls = callStates;
+    if (agentFilter !== 'all') {
+      filteredCalls = callStates.filter(call => call.agent_id === agentFilter);
     }
 
     // Fetch agents for agent performance
@@ -68,11 +199,13 @@ async function fetchDataFromSupabase(agentFilter: string): Promise<DashboardData
     }
 
     // Calculate metrics
-    const totalCalls = calls?.length || 0;
-    const successfulCalls = calls?.filter(call => call.status === 'completed' || call.status === 'successful').length || 0;
-    const transferredCalls = calls?.filter(call => call.status === 'transferred').length || 0;
-    const voicemailCalls = calls?.filter(call => call.status === 'voicemail').length || 0;
-    const answeredCalls = calls?.filter(call => call.status !== 'missed' && call.status !== 'failed').length || 0;
+    const totalCalls = filteredCalls.length;
+    const answeredCalls = filteredCalls.filter(call => 
+      call.status === 'successful' || call.status === 'transferred'
+    ).length;
+    const successfulCalls = filteredCalls.filter(call => call.status === 'successful').length;
+    const transferredCalls = filteredCalls.filter(call => call.status === 'transferred').length;
+    const voicemailCalls = filteredCalls.filter(call => call.status === 'voicemail').length;
 
     // Calculate rates
     const pickupRate = totalCalls > 0 ? Math.round((answeredCalls / totalCalls) * 100) : 0;
@@ -90,10 +223,10 @@ async function fetchDataFromSupabase(agentFilter: string): Promise<DashboardData
       const dayEnd = new Date(date);
       dayEnd.setHours(23, 59, 59, 999);
       
-      const dayCalls = calls?.filter(call => {
+      const dayCalls = filteredCalls.filter(call => {
         const callDate = new Date(call.started_at);
         return callDate >= dayStart && callDate <= dayEnd;
-      }).length || 0;
+      }).length;
 
       return {
         name: getDayName(date),
@@ -108,10 +241,10 @@ async function fetchDataFromSupabase(agentFilter: string): Promise<DashboardData
       const dayEnd = new Date(date);
       dayEnd.setHours(23, 59, 59, 999);
       
-      const dayCalls = calls?.filter(call => {
+      const dayCalls = filteredCalls.filter(call => {
         const callDate = new Date(call.started_at);
         return callDate >= dayStart && callDate <= dayEnd && call.duration;
-      }) || [];
+      });
 
       const avgDuration = dayCalls.length > 0 
         ? dayCalls.reduce((sum, call) => sum + (call.duration || 0), 0) / dayCalls.length / 60 // Convert to minutes
@@ -130,10 +263,10 @@ async function fetchDataFromSupabase(agentFilter: string): Promise<DashboardData
       const dayEnd = new Date(date);
       dayEnd.setHours(23, 59, 59, 999);
       
-      const dayCalls = calls?.filter(call => {
+      const dayCalls = filteredCalls.filter(call => {
         const callDate = new Date(call.started_at);
         return callDate >= dayStart && callDate <= dayEnd && call.latency;
-      }) || [];
+      });
 
       const avgLatency = dayCalls.length > 0 
         ? dayCalls.reduce((sum, call) => sum + (call.latency || 0), 0) / dayCalls.length / 1000 // Convert to seconds
@@ -152,10 +285,10 @@ async function fetchDataFromSupabase(agentFilter: string): Promise<DashboardData
       const dayEnd = new Date(date);
       dayEnd.setHours(23, 59, 59, 999);
       
-      const dayCalls = calls?.filter(call => {
+      const dayCalls = filteredCalls.filter(call => {
         const callDate = new Date(call.started_at);
         return callDate >= dayStart && callDate <= dayEnd;
-      }) || [];
+      });
 
       const inbound = dayCalls.filter(call => call.direction === 'inbound').length;
       const outbound = dayCalls.filter(call => call.direction === 'outbound').length;
@@ -169,9 +302,9 @@ async function fetchDataFromSupabase(agentFilter: string): Promise<DashboardData
 
     // Calculate sentiment distribution
     const sentimentCounts = {
-      positive: calls?.filter(call => call.sentiment === 'positive').length || 0,
-      neutral: calls?.filter(call => call.sentiment === 'neutral').length || 0,
-      negative: calls?.filter(call => call.sentiment === 'negative').length || 0
+      positive: filteredCalls.filter(call => call.sentiment === 'positive').length,
+      neutral: filteredCalls.filter(call => call.sentiment === 'neutral').length,
+      negative: filteredCalls.filter(call => call.sentiment === 'negative').length
     };
 
     const sentimentTotal = sentimentCounts.positive + sentimentCounts.neutral + sentimentCounts.negative;
@@ -196,11 +329,11 @@ async function fetchDataFromSupabase(agentFilter: string): Promise<DashboardData
 
     // Calculate agent performance (if showing all agents)
     const agentPerformance = agents?.slice(0, 3).reduce((acc, agent, index) => {
-      const agentCalls = calls?.filter(call => call.agent_id === agent.id) || [];
+      const agentCalls = filteredCalls.filter(call => call.agent_id === agent.id);
       const agentName = `Agente ${index + 1}`;
       
       const agentSuccessRate = agentCalls.length > 0 
-        ? Math.round((agentCalls.filter(call => call.status === 'completed' || call.status === 'successful').length / agentCalls.length) * 100)
+        ? Math.round((agentCalls.filter(call => call.status === 'successful').length / agentCalls.length) * 100)
         : 0;
       
       const agentTransferRate = agentCalls.length > 0
@@ -249,28 +382,31 @@ async function fetchDataFromSupabase(agentFilter: string): Promise<DashboardData
 
   } catch (error) {
     console.error('Error fetching data from Supabase:', error);
-    
-    // Return default empty data on error
-    const last7Days = getLast7Days();
-    const emptyDayData = last7Days.map(date => ({ name: getDayName(date), calls: 0 }));
-    
-    return {
-      pickupRate: 0,
-      successRate: 0,
-      transferRate: 0,
-      voicemailRate: 0,
-      callVolume: emptyDayData.map(d => ({ name: d.name, calls: 0 })),
-      callDuration: emptyDayData.map(d => ({ name: d.name, duration: 0 })),
-      latency: emptyDayData.map(d => ({ name: d.name, latency: 0 })),
-      inboundOutbound: emptyDayData.map(d => ({ name: d.name, entrantes: 0, salientes: 0 })),
-      sentiment: [
-        { name: 'Positivo', value: 0, color: 'hsl(var(--success))' },
-        { name: 'Neutral', value: 0, color: 'hsl(var(--warning))' },
-        { name: 'Negativo', value: 0, color: 'hsl(var(--danger))' }
-      ],
-      agentPerformance: []
-    };
+    return getDefaultEmptyData();
   }
+}
+
+// Helper function to get default empty data
+function getDefaultEmptyData(): DashboardData {
+  const last7Days = getLast7Days();
+  const emptyDayData = last7Days.map(date => ({ name: getDayName(date), calls: 0 }));
+  
+  return {
+    pickupRate: 0,
+    successRate: 0,
+    transferRate: 0,
+    voicemailRate: 0,
+    callVolume: emptyDayData.map(d => ({ name: d.name, calls: 0 })),
+    callDuration: emptyDayData.map(d => ({ name: d.name, duration: 0 })),
+    latency: emptyDayData.map(d => ({ name: d.name, latency: 0 })),
+    inboundOutbound: emptyDayData.map(d => ({ name: d.name, entrantes: 0, salientes: 0 })),
+    sentiment: [
+      { name: 'Positivo', value: 0, color: 'hsl(var(--success))' },
+      { name: 'Neutral', value: 0, color: 'hsl(var(--warning))' },
+      { name: 'Negativo', value: 0, color: 'hsl(var(--danger))' }
+    ],
+    agentPerformance: []
+  };
 }
 
 export interface Agent {
@@ -299,7 +435,7 @@ export const useDashboardData = () => {
   });
 
   // Fetch agents list
-  const fetchAgents = async () => {
+  const fetchAgents = useCallback(async () => {
     try {
       const { data: agentsData, error } = await supabase
         .from('agents')
@@ -315,28 +451,42 @@ export const useDashboardData = () => {
     } catch (error) {
       console.error('Error fetching agents:', error);
     }
-  };
+  }, []);
 
-  const updateData = async (newFilters: Partial<DashboardFilters>) => {
-    const updatedFilters = { ...filters, ...newFilters };
-    setFilters(updatedFilters);
+  // Fetch dashboard data
+  const fetchData = useCallback(async (currentFilters: DashboardFilters) => {
     setLoading(true);
     
     try {
-      const newData = await fetchDataFromSupabase(updatedFilters.agent);
+      const newData = await fetchDataFromSupabase(currentFilters.agent);
       setData(newData);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  const updateData = useCallback(async (newFilters: Partial<DashboardFilters>) => {
+    const updatedFilters = { ...filters, ...newFilters };
+    setFilters(updatedFilters);
+    await fetchData(updatedFilters);
+  }, [filters, fetchData]);
+
+  // Auto-refresh data every 60 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchData(filters);
+    }, 60000); // 60 seconds
+
+    return () => clearInterval(interval);
+  }, [fetchData, filters]);
 
   // Load initial data and agents
   useEffect(() => {
     fetchAgents();
-    updateData({});
-  }, []);
+    fetchData(filters);
+  }, []); // Only run on mount
 
   return {
     data,
