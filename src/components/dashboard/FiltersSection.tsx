@@ -72,6 +72,8 @@ export const FiltersSection = ({ filters, onFilterChange, agents, loading }: Fil
               <SelectItem value="all">Todos los estados</SelectItem>
               <SelectItem value="successful">Exitosas</SelectItem>
               <SelectItem value="failed">Fallidas</SelectItem>
+              <SelectItem value="transferred">Transferidas</SelectItem>
+              <SelectItem value="voicemail">Voicemail</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -90,8 +92,8 @@ export const FiltersSection = ({ filters, onFilterChange, agents, loading }: Fil
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos los canales</SelectItem>
-              <SelectItem value="phone">Teléfono</SelectItem>
-              <SelectItem value="email">Email</SelectItem>
+              <SelectItem value="voz">Teléfono</SelectItem>
+              <SelectItem value="whatsapp">WhatsApp</SelectItem>
             </SelectContent>
           </Select>
         </div>
