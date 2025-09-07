@@ -24,30 +24,39 @@ const Index = () => {
     );
   }
 
+  // Calcular tendencias basadas en datos reales (puedes ajustar esta lógica)
+  const calculateTrend = (currentRate: number, baseRate: number = 50) => {
+    const difference = currentRate - baseRate;
+    return {
+      value: Math.abs(difference),
+      isPositive: difference >= 0
+    };
+  };
+
   const metrics = data ? [
     {
       value: `${data.pickupRate}%`,
       label: "Call Picked Up Rate",
       variant: "primary" as const,
-      trend: { value: 5.2, isPositive: true }
+      trend: calculateTrend(data.pickupRate)
     },
     {
       value: `${data.successRate}%`,
       label: "Call Successful Rate",
       variant: "success" as const,
-      trend: { value: 3.1, isPositive: true }
+      trend: calculateTrend(data.successRate)
     },
     {
       value: `${data.transferRate}%`,
       label: "Call Transfer Rate",
       variant: "info" as const,
-      trend: { value: 1.8, isPositive: false }
+      trend: calculateTrend(data.transferRate)
     },
     {
       value: `${data.voicemailRate}%`,
       label: "Voicemail Rate",
       variant: "warning" as const,
-      trend: { value: 2.4, isPositive: false }
+      trend: calculateTrend(data.voicemailRate)
     }
   ] : [];
 
@@ -72,12 +81,18 @@ const Index = () => {
               label={metric.label}
               variant={metric.variant}
               trend={metric.trend}
+              loading={loading}
             />
           ))}
         </div>
 
-        {/* Dashboard Tabs */}
-        {data && <DashboardTabs data={data} />}
+        {/* Dashboard Tabs con datos filtrados */}
+        {data && (
+          <DashboardTabs 
+            data={data} 
+            loading={loading}
+          />
+        )}
       </div>
     </div>
   );

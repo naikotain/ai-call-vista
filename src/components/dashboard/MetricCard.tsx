@@ -1,17 +1,19 @@
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 interface MetricCardProps {
   value: string;
   label: string;
-  variant: "primary" | "success" | "info" | "warning" | "danger";
-  trend?: {
+  variant: 'primary' | 'success' | 'info' | 'warning';
+  trend: {
     value: number;
     isPositive: boolean;
   };
+  loading?: boolean;
 }
 
-export const MetricCard = ({ value, label, variant, trend }: MetricCardProps) => {
+export const MetricCard = ({ value, label, variant, trend, loading }: MetricCardProps) => {
   const getVariantStyles = (variant: string) => {
     switch (variant) {
       case "primary":
@@ -28,6 +30,16 @@ export const MetricCard = ({ value, label, variant, trend }: MetricCardProps) =>
         return "text-primary";
     }
   };
+
+  if (loading) {
+    return (
+      <Card className="p-6 text-center shadow-metric">
+        <Skeleton className="h-8 w-20 mx-auto mb-2" />
+        <Skeleton className="h-4 w-32 mx-auto mb-2" />
+        <Skeleton className="h-3 w-16 mx-auto" />
+      </Card>
+    );
+  }
 
   return (
     <Card className="p-6 text-center shadow-metric hover:shadow-lg transition-shadow duration-200">

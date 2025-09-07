@@ -37,21 +37,57 @@ const getLast7Days = (): Date[] => {
 };
 
 // Fetch data from Supabase
-async function fetchDataFromSupabase(agentFilter: string): Promise<DashboardData> {
+// En tu useDashboardData.ts, modifica la función fetchDataFromSupabase
+// En tu useDashboardData.ts, modifica la función fetchDataFromSupabase
+async function fetchDataFromSupabase(filters: DashboardFilters): Promise<DashboardData> {
   try {
-    // Base query for calls
-    let callsQuery = supabase.from('calls').select(`
-      *,
-      agents(name)
-    `);
+    // Crear una consulta base con tipo explícito
+    let query = supabase
+      .from('calls')
+      .select('*, agents(name)') as any; // Usar 'as any' temporalmente para evitar problemas de tipo
 
-    // Apply agent filter if not 'all'
-    if (agentFilter !== 'all') {
-      callsQuery = callsQuery.eq('agent_id', agentFilter);
+    // Aplicar filtros condicionalmente
+    if (filters.agent !== 'all') {
+      query = query.eq('agent_id', filters.agent);
     }
 
-    const { data: calls, error: callsError } = await callsQuery;
-    
+    if (filters.status !== 'all') {
+      query = query.eq('status', filters.status);
+    }
+
+    if (filters.callType !== 'all') {
+      query = query.eq('direction', filters.callType);
+    }
+
+    if (filters.channel !== 'all') {
+      query = query.eq('channel', filters.channel);
+    }
+
+    // Aplicar filtro de rango de tiempo
+    if (filters.timeRange !== 'all') {
+      const date = new Date();
+      let startDate: Date;
+      
+      switch (filters.timeRange) {
+        case 'today':
+          startDate = new Date(date.setHours(0, 0, 0, 0));
+          break;
+        case 'week':
+          startDate = new Date(date.setDate(date.getDate() - 7));
+          break;
+        case 'month':
+          startDate = new Date(date.setMonth(date.getMonth() - 1));
+          break;
+        default:
+          startDate = new Date(0);
+      }
+      
+      query = query.gte('started_at', startDate.toISOString());
+    }
+
+    // Ejecutar la consulta
+    const { data: calls, error: callsError } = await query;
+
     if (callsError) {
       console.error('Error fetching calls:', callsError);
       throw callsError;
@@ -244,7 +280,9 @@ async function fetchDataFromSupabase(agentFilter: string): Promise<DashboardData
       latency,
       inboundOutbound,
       sentiment,
-      agentPerformance
+      agentPerformance,
+
+      
     };
 
   } catch (error) {
@@ -317,21 +355,21 @@ export const useDashboardData = () => {
     }
   };
 
-  const updateData = async (newFilters: Partial<DashboardFilters>) => {
-    const updatedFilters = { ...filters, ...newFilters };
-    setFilters(updatedFilters);
-    setLoading(true);
-    
-    try {
-      const newData = await fetchDataFromSupabase(updatedFilters.agent);
-      setData(newData);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+const updateData = async (newFilters: Partial<DashboardFilters>) => {
+  const updatedFilters = { ...filters, ...newFilters };
+  setFilters(updatedFilters);
+  setLoading(true);
+  
+  try {
+    // Pasar el objeto completo de filtros, no solo el agente
+    const newData = await fetchDataFromSupabase(updatedFilters);
+    setData(newData);
+  } catch (error) {
+    console.error('Error fetching data:', error);
+  } finally {
+    setLoading(false);
+  }
+};
   // Load initial data and agents
   useEffect(() => {
     fetchAgents();

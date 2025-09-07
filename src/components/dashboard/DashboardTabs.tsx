@@ -1,5 +1,6 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { CallVolumeChart } from "@/components/charts/CallVolumeChart";
 import { CallDistributionChart } from "@/components/charts/CallDistributionChart";
 import { CallDurationChart } from "@/components/charts/CallDurationChart";
@@ -14,9 +15,18 @@ import { DashboardData } from "@/hooks/useDashboardData";
 
 interface DashboardTabsProps {
   data: DashboardData;
+  loading?: boolean;
 }
 
-export const DashboardTabs = ({ data }: DashboardTabsProps) => {
+// Componente de esqueleto para las tarjetas de gráficos
+const ChartSkeleton = () => (
+  <div className="space-y-2">
+    <Skeleton className="h-4 w-32" />
+    <Skeleton className="h-[200px] w-full" />
+  </div>
+);
+
+export const DashboardTabs = ({ data, loading }: DashboardTabsProps) => {
   return (
     <Tabs defaultValue="overview" className="w-full">
       <TabsList className="grid w-full grid-cols-4 mb-6">
@@ -34,7 +44,7 @@ export const DashboardTabs = ({ data }: DashboardTabsProps) => {
                 <CardTitle>Volumen de Llamadas por Día</CardTitle>
               </CardHeader>
               <CardContent>
-                <CallVolumeChart data={data.callVolume} />
+                {loading ? <ChartSkeleton /> : <CallVolumeChart data={data.callVolume} />}
               </CardContent>
             </Card>
           </div>
@@ -43,7 +53,7 @@ export const DashboardTabs = ({ data }: DashboardTabsProps) => {
               <CardTitle>Distribución de Llamadas</CardTitle>
             </CardHeader>
             <CardContent>
-              <CallDistributionChart />
+              {loading ? <ChartSkeleton /> : <CallDistributionChart />}
             </CardContent>
           </Card>
         </div>
@@ -54,7 +64,7 @@ export const DashboardTabs = ({ data }: DashboardTabsProps) => {
               <CardTitle>Duración Promedio de Llamadas (minutos)</CardTitle>
             </CardHeader>
             <CardContent>
-              <CallDurationChart data={data.callDuration} />
+              {loading ? <ChartSkeleton /> : <CallDurationChart data={data.callDuration} />}
             </CardContent>
           </Card>
           <Card className="shadow-metric">
@@ -62,7 +72,7 @@ export const DashboardTabs = ({ data }: DashboardTabsProps) => {
               <CardTitle>Latencia Promedio (segundos)</CardTitle>
             </CardHeader>
             <CardContent>
-              <LatencyChart data={data.latency} />
+              {loading ? <ChartSkeleton /> : <LatencyChart data={data.latency} />}
             </CardContent>
           </Card>
         </div>
@@ -79,7 +89,7 @@ export const DashboardTabs = ({ data }: DashboardTabsProps) => {
               <CardTitle>Razones de Desconexión</CardTitle>
             </CardHeader>
             <CardContent>
-              <DisconnectionChart />
+              {loading ? <ChartSkeleton /> : <DisconnectionChart />}
             </CardContent>
           </Card>
           <Card className="shadow-metric">
@@ -87,7 +97,7 @@ export const DashboardTabs = ({ data }: DashboardTabsProps) => {
               <CardTitle>Llamadas Entrantes vs Salientes</CardTitle>
             </CardHeader>
             <CardContent>
-              <InboundOutboundChart data={data.inboundOutbound} />
+              {loading ? <ChartSkeleton /> : <InboundOutboundChart data={data.inboundOutbound} />}
             </CardContent>
           </Card>
         </div>
@@ -97,7 +107,7 @@ export const DashboardTabs = ({ data }: DashboardTabsProps) => {
             <CardTitle>Tasa de Éxito por Hora del Día</CardTitle>
           </CardHeader>
           <CardContent>
-            <SuccessByHourChart />
+            {loading ? <ChartSkeleton /> : <SuccessByHourChart />}
           </CardContent>
         </Card>
       </TabsContent>
@@ -112,7 +122,7 @@ export const DashboardTabs = ({ data }: DashboardTabsProps) => {
             <CardTitle>Comparativa de Agentes</CardTitle>
           </CardHeader>
           <CardContent>
-            <AgentPerformanceChart data={data.agentPerformance} />
+            {loading ? <ChartSkeleton /> : <AgentPerformanceChart data={data.agentPerformance} />}
           </CardContent>
         </Card>
       </TabsContent>
@@ -128,7 +138,7 @@ export const DashboardTabs = ({ data }: DashboardTabsProps) => {
               <CardTitle>Distribución de Sentimiento</CardTitle>
             </CardHeader>
             <CardContent>
-              <SentimentDistributionChart data={data.sentiment} />
+              {loading ? <ChartSkeleton /> : <SentimentDistributionChart data={data.sentiment} />}
             </CardContent>
           </Card>
           <Card className="shadow-metric">
@@ -136,7 +146,7 @@ export const DashboardTabs = ({ data }: DashboardTabsProps) => {
               <CardTitle>Evolución del Sentimiento</CardTitle>
             </CardHeader>
             <CardContent>
-              <SentimentTrendChart />
+              {loading ? <ChartSkeleton /> : <SentimentTrendChart />}
             </CardContent>
           </Card>
         </div>
