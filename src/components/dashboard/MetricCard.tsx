@@ -6,14 +6,15 @@ interface MetricCardProps {
   value: string;
   label: string;
   variant: 'primary' | 'success' | 'info' | 'warning';
-  trend: {
+  trend?: {
     value: number;
     isPositive: boolean;
   };
+  description?: string;
   loading?: boolean;
 }
 
-export const MetricCard = ({ value, label, variant, trend, loading }: MetricCardProps) => {
+export const MetricCard = ({ value, label, variant, trend, description, loading }: MetricCardProps) => {
   const getVariantStyles = (variant: string) => {
     switch (variant) {
       case "primary":
@@ -49,6 +50,14 @@ export const MetricCard = ({ value, label, variant, trend, loading }: MetricCard
       <div className="text-sm text-muted-foreground mb-2">
         {label}
       </div>
+      
+      {/* Añade esta sección para la descripción */}
+      {description && (
+        <div className="text-xs text-gray-500 mb-2">
+          {description}
+        </div>
+      )}
+      
       {trend && (
         <div className={cn(
           "text-xs font-medium",

@@ -24,7 +24,7 @@ const Index = () => {
     );
   }
 
-  // Calcular tendencias basadas en datos reales (puedes ajustar esta lógica)
+  // Calcular tendencias basadas en datos reales
   const calculateTrend = (currentRate: number, baseRate: number = 50) => {
     const difference = currentRate - baseRate;
     return {
@@ -60,6 +60,11 @@ const Index = () => {
     }
   ] : [];
 
+  // Calcular totales para las nuevas tarjetas de conteo
+  const totalCalls = data ? data.callVolume.reduce((sum, day) => sum + day.calls, 0) : 0;
+  const totalInbound = data ? data.inboundOutbound.reduce((sum, day) => sum + day.entrantes, 0) : 0;
+  const totalOutbound = data ? data ? data.inboundOutbound.reduce((sum, day) => sum + day.salientes, 0) : 0 : 0;
+
   return (
     <div className="min-h-screen bg-background">
       <DashboardHeader />
@@ -84,6 +89,31 @@ const Index = () => {
               loading={loading}
             />
           ))}
+        </div>
+
+        {/* Nuevas Tarjetas de Conteo */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <MetricCard
+            value={totalCalls.toString()}
+            label="Total Llamadas"
+            variant="info"
+            description="Conteo total con filtros aplicados"
+            loading={loading}
+          />
+          <MetricCard
+            value={totalInbound.toString()}
+            label="Llamadas Entrantes"
+            variant="info"
+            description="Llamadas recibidas"
+            loading={loading}
+          />
+          <MetricCard
+            value={totalOutbound.toString()}
+            label="Llamadas Salientes"
+            variant="info"
+            description="Llamadas realizadas"
+            loading={loading}
+          />
         </div>
 
         {/* Dashboard Tabs con datos filtrados */}
