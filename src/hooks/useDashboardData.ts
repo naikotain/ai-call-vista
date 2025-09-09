@@ -25,7 +25,27 @@ export interface DashboardData {
     inboundFailureRate: number;
     outboundFailureRate: number;
   };
+costMetrics?: {
+    totalCosto: number;
+    costoPromedioPorLlamada: number;
+    costoPorMinuto: number;
+    costoPorTipo: {
+      inbound: number;
+      outbound: number;
+    };
+    costoPorAgente: Array<{
+      agente: string;
+      costo: number;
+      llamadas: number;
+      costoPromedio: number;
+    }>;
+    costoPorDia: Array<{
+      name: string;
+      costo: number;
+    }>;
+  };
 }
+
 
 // Helper function to get week days in Spanish (SIN problemas de timezone)
 const getWeekDays = (): { id: number, name: string }[] => {
@@ -40,6 +60,7 @@ const getWeekDays = (): { id: number, name: string }[] => {
   ];
 };
 
+// Fetch data from Supabase
 // Fetch data from Supabase
 async function fetchDataFromSupabase(filters: DashboardFilters): Promise<DashboardData> {
   try {
@@ -269,6 +290,52 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
       outboundFailureRate: outboundCalls > 0 ? Math.round((calls?.filter(call => call.status === 'failed' && call.direction === 'outbound').length || 0) / outboundCalls * 100) : 0
     };
 
+    // ✅ CALCULAR MÉTRICAS DE COSTO
+    const calcularCostoLlamada = (duration: number | null): number => {
+      if (!duration) return 0.0016; // Costo base si no hay duración
+      // Fórmula: 0.0016 USD + (0.016 USD por minuto)
+      return 0.0016 + (duration * 0.016 / 60);
+    };
+
+    const totalCosto = calls?.reduce((sum, call) => sum + calcularCostoLlamada(call.duration), 0) || 0;
+    const costoPromedioPorLlamada = totalCalls > 0 ? totalCosto / totalCalls : 0;
+    const costoPorMinuto = 0.016; // Tarifa fija por minuto
+
+    // Costo por tipo de llamada
+    const costoPorTipo = {
+      inbound: calls?.filter(call => call.direction === 'inbound')
+                    .reduce((sum, call) => sum + calcularCostoLlamada(call.duration), 0) || 0,
+      outbound: calls?.filter(call => call.direction === 'outbound')
+                     .reduce((sum, call) => sum + calcularCostoLlamada(call.duration), 0) || 0
+    };
+
+    // Costo por agente
+    const costoPorAgente = agents.map(agent => {
+      const agentCalls = calls?.filter(call => call.agent_id === agent.id) || [];
+      const costoAgente = agentCalls.reduce((sum, call) => sum + calcularCostoLlamada(call.duration), 0);
+      return {
+        agente: agent.name,
+        costo: parseFloat(costoAgente.toFixed(6)),
+        llamadas: agentCalls.length,
+        costoPromedio: agentCalls.length > 0 ? parseFloat((costoAgente / agentCalls.length).toFixed(6)) : 0
+      };
+    });
+
+    // Costo por día de la semana
+    const costoPorDia = weekDays.map(day => {
+      const dayCalls = calls?.filter(call => {
+        if (!call.started_at) return false;
+        return new Date(call.started_at).getDay() === day.id;
+      }) || [];
+
+      const costoDia = dayCalls.reduce((sum, call) => sum + calcularCostoLlamada(call.duration), 0);
+      
+      return {
+        name: day.name,
+        costo: parseFloat(costoDia.toFixed(6))
+      };
+    });
+
     return {
       pickupRate,
       successRate,
@@ -280,7 +347,16 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
       inboundOutbound,
       sentiment,
       agentPerformance,
-      failedMetrics
+      failedMetrics,
+      // ✅ Nuevo: Métricas de costo
+      costMetrics: {
+        totalCosto: parseFloat(totalCosto.toFixed(6)),
+        costoPromedioPorLlamada: parseFloat(costoPromedioPorLlamada.toFixed(6)),
+        costoPorMinuto: parseFloat(costoPorMinuto.toFixed(6)),
+        costoPorTipo,
+        costoPorAgente,
+        costoPorDia
+      }
     };
 
   } catch (error) {
@@ -312,6 +388,18 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
         failureRate: 0,
         inboundFailureRate: 0,
         outboundFailureRate: 0
+      },
+      // ✅ Métricas de costo vacías en caso de error
+      costMetrics: {
+        totalCosto: 0,
+        costoPromedioPorLlamada: 0,
+        costoPorMinuto: 0.016,
+        costoPorTipo: {
+          inbound: 0,
+          outbound: 0
+        },
+        costoPorAgente: [],
+        costoPorDia: weekDays.map(day => ({ name: day.name, costo: 0 }))
       }
     };
   }
