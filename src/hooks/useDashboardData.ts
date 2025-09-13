@@ -1,6 +1,23 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+export interface DisconnectionReason {
+  reason: string;
+  count: number;
+  percentage: number;
+  category: 'ended' | 'not_connected' | 'error';
+}
+
+export interface DisconnectionMetrics {
+  totalCalls: number;
+  byCategory: {
+    ended: number;
+    not_connected: number;
+    error: number;
+  };
+  reasons: DisconnectionReason[];
+}
+
 export interface DashboardData {
   pickupRate: number;
   successRate: number;
@@ -25,7 +42,7 @@ export interface DashboardData {
     inboundFailureRate: number;
     outboundFailureRate: number;
   };
-costMetrics?: {
+  costMetrics?: {
     totalCosto: number;
     costoPromedioPorLlamada: number;
     costoPorMinuto: number;
@@ -44,8 +61,54 @@ costMetrics?: {
       costo: number;
     }>;
   };
+  disconnectMetrics?: DisconnectionMetrics;
 }
 
+// Helper functions para categorizar las razones
+const categorizeDisconnectReason = (reason: string): 'ended' | 'not_connected' | 'error' => {
+  const endedReasons = ['user_hangup', 'agent_hangup', 'voicemail_reached', 'inactivity', 'max_duration_reached'];
+  const notConnectedReasons = ['dial_busy', 'dial_failed', 'dial_no_answer', 'invalid_destination', 
+                              'telephony_provider_permission_denied', 'telephony_provider_unavailable',
+                              'sip_routing_error', 'marked_as_spam', 'user_declined'];
+  
+  if (endedReasons.includes(reason)) return 'ended';
+  if (notConnectedReasons.includes(reason)) return 'not_connected';
+  return 'error';
+};
+
+const getFriendlyReasonName = (reason: string): string => {
+  const reasonNames: Record<string, string> = {
+    'user_hangup': 'Cliente colgó',
+    'agent_hangup': 'Agente colgó',
+    'voicemail_reached': 'Buzón de voz',
+    'inactivity': 'Inactividad',
+    'max_duration_reached': 'Tiempo máximo excedido',
+    'dial_busy': 'Línea ocupada',
+    'dial_failed': 'Llamada fallida',
+    'dial_no_answer': 'Sin respuesta',
+    'invalid_destination': 'Destino inválido',
+    'telephony_provider_permission_denied': 'Permiso denegado',
+    'telephony_provider_unavailable': 'Proveedor no disponible',
+    'sip_routing_error': 'Error de routing SIP',
+    'marked_as_spam': 'Marcado como spam',
+    'user_declined': 'Usuario rechazó',
+    'concurrency_limit_reached': 'Límite de concurrencia',
+    'no_valid_payment': 'Sin pago válido',
+    'scam_detected': 'Scam detectado',
+    'error_llm_websocket_open': 'Error conexión LLM',
+    'error_llm_websocket_lost_connection': 'Conexión LLM perdida',
+    'error_llm_websocket_runtime': 'Error runtime LLM',
+    'error_llm_websocket_corrupt_payload': 'Payload corrupto LLM',
+    'error_no_audio_received': 'Sin audio recibido',
+    'error_asr': 'Error ASR',
+    'error_retell': 'Error Retell',
+    'error_unknown': 'Error desconocido',
+    'error_user_not_joined': 'Usuario no se unió',
+    'registered_call_timeout': 'Timeout de llamada'
+  };
+  
+  return reasonNames[reason] || reason;
+};
 
 // Helper function to get week days in Spanish (SIN problemas de timezone)
 const getWeekDays = (): { id: number, name: string }[] => {
@@ -60,7 +123,6 @@ const getWeekDays = (): { id: number, name: string }[] => {
   ];
 };
 
-// Fetch data from Supabase
 // Fetch data from Supabase
 async function fetchDataFromSupabase(filters: DashboardFilters): Promise<DashboardData> {
   try {
@@ -336,6 +398,43 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
       };
     });
 
+    // ✅ CALCULAR MÉTRICAS DE DESCONEXIÓN (NUEVO)
+    const disconnectReasonCounts: Record<string, number> = {};
+
+    calls?.forEach((call: any) => {
+      if (call.disconnect_reason) {
+        disconnectReasonCounts[call.disconnect_reason] = (disconnectReasonCounts[call.disconnect_reason] || 0) + 1;
+      }
+    });
+
+    // También necesitas actualizar otras partes donde uses 'call'
+    const totalCallsWithDisconnectReason = Object.values(disconnectReasonCounts).reduce((sum, count) => sum + count, 0);
+    // Formatear razones de desconexión
+    const disconnectReasons = Object.entries(disconnectReasonCounts)
+      .map(([reason, count]) => ({
+        reason,
+        count,
+        percentage: totalCallsWithDisconnectReason > 0 ? Math.round((count / totalCallsWithDisconnectReason) * 100) : 0,
+        category: categorizeDisconnectReason(reason)
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    // Calcular totales por categoría
+    const byCategory = disconnectReasons.reduce((acc, item) => {
+      acc[item.category] = (acc[item.category] || 0) + item.count;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const disconnectMetrics: DisconnectionMetrics = {
+      totalCalls: totalCallsWithDisconnectReason,
+      byCategory: {
+        ended: byCategory.ended || 0,
+        not_connected: byCategory.not_connected || 0,
+        error: byCategory.error || 0
+      },
+      reasons: disconnectReasons
+    };
+
     return {
       pickupRate,
       successRate,
@@ -348,7 +447,6 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
       sentiment,
       agentPerformance,
       failedMetrics,
-      // ✅ Nuevo: Métricas de costo
       costMetrics: {
         totalCosto: parseFloat(totalCosto.toFixed(6)),
         costoPromedioPorLlamada: parseFloat(costoPromedioPorLlamada.toFixed(6)),
@@ -356,7 +454,9 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
         costoPorTipo,
         costoPorAgente,
         costoPorDia
-      }
+      },
+      // ✅ NUEVO: Métricas de desconexión
+      disconnectMetrics
     };
 
   } catch (error) {
@@ -389,7 +489,6 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
         inboundFailureRate: 0,
         outboundFailureRate: 0
       },
-      // ✅ Métricas de costo vacías en caso de error
       costMetrics: {
         totalCosto: 0,
         costoPromedioPorLlamada: 0,
@@ -400,6 +499,16 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
         },
         costoPorAgente: [],
         costoPorDia: weekDays.map(day => ({ name: day.name, costo: 0 }))
+      },
+      // ✅ Métricas de desconexión vacías en caso de error
+      disconnectMetrics: {
+        totalCalls: 0,
+        byCategory: {
+          ended: 0,
+          not_connected: 0,
+          error: 0
+        },
+        reasons: []
       }
     };
   }

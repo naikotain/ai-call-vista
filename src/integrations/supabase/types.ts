@@ -81,6 +81,7 @@ export type Database = {
           sentiment: string | null
           started_at: string
           status: string
+          disconnect_reason: string | null;
         }
         Insert: {
           agent_id?: string | null

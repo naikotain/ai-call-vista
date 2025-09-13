@@ -4,6 +4,7 @@ import { MetricCard } from "@/components/dashboard/MetricCard";
 import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DisconnectionReasonsChart } from '@/components/charts/DisconnectionReasonsChart';
 
 const Index = () => {
   const { data, agents, loading, filters, updateData } = useDashboardData();
@@ -204,6 +205,16 @@ const Index = () => {
                 ))}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ✅ NUEVO: Razones de Desconexión */}
+        {data?.disconnectMetrics && data.disconnectMetrics.reasons.length > 0 && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">Análisis de Razones de Desconexión</h2>
+            </div>
+            <DisconnectionReasonsChart data={data.disconnectMetrics.reasons} />
           </div>
         )}
 
