@@ -5,13 +5,14 @@ import { CallVolumeChart } from "@/components/charts/CallVolumeChart";
 import { CallDistributionChart } from "@/components/charts/CallDistributionChart";
 import { CallDurationChart } from "@/components/charts/CallDurationChart";
 import { LatencyChart } from "@/components/charts/LatencyChart";
-import { DisconnectionChart } from "@/components/charts/DisconnectionChart";
 import { InboundOutboundChart } from "@/components/charts/InboundOutboundChart";
 import { SuccessByHourChart } from "@/components/charts/SuccessByHourChart";
 import { AgentPerformanceChart } from "@/components/charts/AgentPerformanceChart";
 import { SentimentDistributionChart } from "@/components/charts/SentimentDistributionChart";
 import { SentimentTrendChart } from "@/components/charts/SentimentTrendChart";
 import { DashboardData } from "@/hooks/useDashboardData";
+import { CostCharts } from "@/components/charts/CostCharts";
+import { DisconnectionReasonsChart } from '@/components/charts/DisconnectionReasonsChart';
 
 interface DashboardTabsProps {
   data: DashboardData;
@@ -29,11 +30,12 @@ const ChartSkeleton = () => (
 export const DashboardTabs = ({ data, loading }: DashboardTabsProps) => {
   return (
     <Tabs defaultValue="overview" className="w-full">
-      <TabsList className="grid w-full grid-cols-4 mb-6">
+      <TabsList className="grid w-full grid-cols-5 mb-6">
         <TabsTrigger value="overview">Resumen</TabsTrigger>
         <TabsTrigger value="calls">Llamadas</TabsTrigger>
         <TabsTrigger value="agents">Agentes</TabsTrigger>
         <TabsTrigger value="sentiment">Sentimiento</TabsTrigger>
+        <TabsTrigger value="costs">Costos</TabsTrigger>
       </TabsList>
 
       <TabsContent value="overview" className="space-y-6">
@@ -84,14 +86,7 @@ export const DashboardTabs = ({ data, loading }: DashboardTabsProps) => {
         </h3>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="shadow-metric">
-            <CardHeader>
-              <CardTitle>Razones de Desconexión</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loading ? <ChartSkeleton /> : <DisconnectionChart />}
-            </CardContent>
-          </Card>
+          {/* ✅ ELIMINADO: Gráfico antiguo de Razones de Desconexión */}
           <Card className="shadow-metric">
             <CardHeader>
               <CardTitle>Llamadas Entrantes vs Salientes</CardTitle>
@@ -100,7 +95,22 @@ export const DashboardTabs = ({ data, loading }: DashboardTabsProps) => {
               {loading ? <ChartSkeleton /> : <InboundOutboundChart data={data.inboundOutbound} />}
             </CardContent>
           </Card>
+          
+          {/* Nuevo gráfico opcional o espacio para futuro uso */}
+
         </div>
+
+        {/* ✅ Razones de Desconexión Reales (EL ÚNICO QUE DEBE APARECER) */}
+        {data.disconnectMetrics && data.disconnectMetrics.reasons.length > 0 && (
+          <Card className="shadow-metric">
+            <CardHeader>
+              <CardTitle>Análisis de Razones de Desconexión</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <DisconnectionReasonsChart data={data.disconnectMetrics.reasons} />
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="shadow-metric">
           <CardHeader>
@@ -150,6 +160,22 @@ export const DashboardTabs = ({ data, loading }: DashboardTabsProps) => {
             </CardContent>
           </Card>
         </div>
+      </TabsContent>
+
+      {/* ✅ Pestaña de Costos */}
+      <TabsContent value="costs" className="space-y-6">
+        <h3 className="text-xl font-semibold border-l-4 border-primary pl-3">
+          Análisis de Costos
+        </h3>
+        
+        {data.costMetrics ? (
+          <CostCharts costMetrics={data.costMetrics} loading={loading} />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="h-80 bg-muted rounded-lg animate-pulse"></div>
+            <div className="h-80 bg-muted rounded-lg animate-pulse"></div>
+          </div>
+        )}
       </TabsContent>
     </Tabs>
   );
