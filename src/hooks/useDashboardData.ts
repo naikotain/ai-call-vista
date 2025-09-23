@@ -62,6 +62,13 @@ export interface DashboardData {
     }>;
   };
   disconnectMetrics?: DisconnectionMetrics;
+  // NUEVO: Datos para SuccessByHourChart
+  successByHour: Array<{
+    hour: string;
+    successRate: number;
+    totalCalls: number;
+    successfulCalls: number;
+  }>;
 }
 
 // Helper functions para categorizar las razones
@@ -121,6 +128,51 @@ const getWeekDays = (): { id: number, name: string }[] => {
     { id: 6, name: 'Sáb' },
     { id: 0, name: 'Dom' }
   ];
+};
+
+// NUEVA FUNCIÓN: Calcular éxito por hora
+const calculateSuccessByHour = (calls: any[]): Array<{
+  hour: string;
+  successRate: number;
+  totalCalls: number;
+  successfulCalls: number;
+}> => {
+  // Crear objeto para agrupar por hora
+  const hoursData: Record<number, { total: number; successful: number }> = {};
+  
+  // Inicializar todas las horas (0-23)
+  for (let hour = 0; hour < 24; hour++) {
+    hoursData[hour] = { total: 0, successful: 0 };
+  }
+  
+  // Procesar cada llamada
+  calls.forEach(call => {
+    if (!call.started_at) return;
+    
+    const callHour = new Date(call.started_at).getHours();
+    const isSuccessful = call.status === 'completed' || call.status === 'successful';
+    
+    hoursData[callHour].total += 1;
+    if (isSuccessful) {
+      hoursData[callHour].successful += 1;
+    }
+  });
+  
+  // Convertir a array y calcular tasas
+  return Object.entries(hoursData)
+    .map(([hour, data]) => {
+      const hourNum = parseInt(hour);
+      const successRate = data.total > 0 ? Math.round((data.successful / data.total) * 100) : 0;
+      
+      return {
+        hour: `${hourNum.toString().padStart(2, '0')}:00`,
+        successRate,
+        totalCalls: data.total,
+        successfulCalls: data.successful
+      };
+    })
+    .filter(item => item.totalCalls > 0) // Solo mostrar horas con llamadas
+    .sort((a, b) => parseInt(a.hour) - parseInt(b.hour)); // Ordenar por hora
 };
 
 // Fetch data from Supabase
@@ -274,6 +326,9 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
         return new Date(call.started_at).getDay() === day.id && call.direction === 'outbound';
       }).length || 0
     }));
+
+    // 5. NUEVO: Tasa de éxito por hora (DATOS REALES)
+    const successByHour = calculateSuccessByHour(calls || []);
 
     // Calculate sentiment distribution
     const sentimentCounts = {
@@ -456,7 +511,9 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
         costoPorDia
       },
       // ✅ NUEVO: Métricas de desconexión
-      disconnectMetrics
+      disconnectMetrics,
+      // ✅ NUEVO: Datos reales para SuccessByHourChart
+      successByHour
     };
 
   } catch (error) {
@@ -500,7 +557,6 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
         costoPorAgente: [],
         costoPorDia: weekDays.map(day => ({ name: day.name, costo: 0 }))
       },
-      // ✅ Métricas de desconexión vacías en caso de error
       disconnectMetrics: {
         totalCalls: 0,
         byCategory: {
@@ -509,7 +565,9 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
           error: 0
         },
         reasons: []
-      }
+      },
+      // ✅ Datos vacíos para SuccessByHourChart en caso de error
+      successByHour: []
     };
   }
 }
