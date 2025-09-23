@@ -69,52 +69,57 @@ export type Database = {
       }
       calls: {
         Row: {
-          agent_id: string | null
-          call_type: string | null
-          channel: string | null
-          customer_phone: string
-          direction: string
-          duration: number | null
-          ended_at: string | null
-          id: string
-          latency: number | null
-          sentiment: string | null
-          started_at: string
-          status: string
+          api: string | null;  // ← NUEVO NOMBRE (antes agent_id)
+          objetivo_de_llamada: string | null;
+          channel: string | null;
+          customer_phone: string;
+          tipo_de_llamada: string;
+          duration: number | null;
+          ended_at: string | null;
+          id: string;
+          latency: number | null;
+          sentiment: string | null;
+          started_at: string;
+          status: string;
           disconnect_reason: string | null;
+          date: string | null;
         }
         Insert: {
-          agent_id?: string | null
-          call_type?: string | null
-          channel?: string | null
-          customer_phone: string
-          direction: string
-          duration?: number | null
-          ended_at?: string | null
-          id?: string
-          latency?: number | null
-          sentiment?: string | null
-          started_at?: string
-          status: string
+          api?: string | null;  // ← NUEVO NOMBRE
+          objetivo_de_la_llamada?: string | null;
+          channel?: string | null;
+          customer_phone: string;
+          tipo_de_llamada: string;
+          duration?: number | null;
+          ended_at?: string | null;
+          id?: string;
+          latency?: number | null;
+          sentiment?: string | null;
+          started_at?: string;
+          status: string;
+          disconnect_reason?: string | null;
+          date?: string | null;
         }
         Update: {
-          agent_id?: string | null
-          call_type?: string | null
-          channel?: string | null
-          customer_phone?: string
-          direction?: string
-          duration?: number | null
-          ended_at?: string | null
-          id?: string
-          latency?: number | null
-          sentiment?: string | null
-          started_at?: string
-          status?: string
+          api?: string | null;  // ← NUEVO NOMBRE
+          objetivo_de_la_llamada?: string | null;
+          channel?: string | null;
+          customer_phone?: string;
+          tipo_de_llamada?: string;
+          duration?: number | null;
+          ended_at?: string | null;
+          id?: string;
+          latency?: number | null;
+          sentiment?: string | null;
+          started_at?: string;
+          status?: string;
+          disconnect_reason?: string | null;
+          date?: string | null;
         }
         Relationships: [
           {
-            foreignKeyName: "calls_agent_id_fkey"
-            columns: ["agent_id"]
+            foreignKeyName: "calls_api_fkey"  // ← NUEVO NOMBRE
+            columns: ["api"]
             isOneToOne: false
             referencedRelation: "agents"
             referencedColumns: ["id"]

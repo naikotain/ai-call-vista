@@ -184,7 +184,7 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
 
     // Aplicar filtros condicionalmente
     if (filters.agent !== 'all') {
-      query = query.eq('agent_id', filters.agent);
+      query = query.eq('api', filters.agent);
     }
 
     if (filters.status !== 'all') {
@@ -192,7 +192,7 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
     }
 
     if (filters.callType !== 'all') {
-      query = query.eq('direction', filters.callType);
+      query = query.eq('tipo_de_llamada', filters.callType);
     }
 
     if (filters.channel !== 'all') {
@@ -246,8 +246,8 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
     const voicemailCalls = calls?.filter(call => call.status === 'voicemail').length || 0;
     const answeredCalls = calls?.filter(call => call.status !== 'missed' && call.status !== 'failed').length || 0;
     const failedCalls = calls?.filter(call => call.status === 'failed').length || 0;
-    const inboundCalls = calls?.filter(call => call.direction === 'inbound').length || 0;
-    const outboundCalls = calls?.filter(call => call.direction === 'outbound').length || 0;
+ const inboundCalls = calls?.filter(call => call.tipo_de_llamada === 'inbound').length || 0;
+const outboundCalls = calls?.filter(call => call.tipo_de_llamada === 'outbound').length || 0;
 
     // Calculate rates
     const pickupRate = totalCalls > 0 ? Math.round((answeredCalls / totalCalls) * 100) : 0;
@@ -319,11 +319,11 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
       name: day.name,
       entrantes: calls?.filter(call => {
         if (!call.started_at) return false;
-        return new Date(call.started_at).getDay() === day.id && call.direction === 'inbound';
+        return new Date(call.started_at).getDay() === day.id && call.tipo_de_llamada === 'inbound';
       }).length || 0,
       salientes: calls?.filter(call => {
         if (!call.started_at) return false;
-        return new Date(call.started_at).getDay() === day.id && call.direction === 'outbound';
+        return new Date(call.started_at).getDay() === day.id && call.tipo_de_llamada === 'outbound';
       }).length || 0
     }));
 
@@ -359,7 +359,7 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
 
     // Calculate agent performance
     const agentPerformance = agents?.slice(0, 3).reduce((acc, agent, index) => {
-      const agentCalls = calls?.filter(call => call.agent_id === agent.id) || [];
+      const agentCalls = calls?.filter(call => call.api === agent.id) || [];
       const agentName = `Agente ${index + 1}`;
       
       const agentSuccessRate = agentCalls.length > 0 
@@ -400,11 +400,11 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
     // Métricas para fallos
     const failedMetrics = {
       totalFailed: failedCalls,
-      failedInbound: calls?.filter(call => call.status === 'failed' && call.direction === 'inbound').length || 0,
-      failedOutbound: calls?.filter(call => call.status === 'failed' && call.direction === 'outbound').length || 0,
+failedInbound: calls?.filter(call => call.status === 'failed' && call.tipo_de_llamada === 'inbound').length || 0,
+failedOutbound: calls?.filter(call => call.status === 'failed' && call.tipo_de_llamada === 'outbound').length || 0,
       failureRate: totalCalls > 0 ? Math.round((failedCalls / totalCalls) * 100) : 0,
-      inboundFailureRate: inboundCalls > 0 ? Math.round((calls?.filter(call => call.status === 'failed' && call.direction === 'inbound').length || 0) / inboundCalls * 100) : 0,
-      outboundFailureRate: outboundCalls > 0 ? Math.round((calls?.filter(call => call.status === 'failed' && call.direction === 'outbound').length || 0) / outboundCalls * 100) : 0
+      inboundFailureRate: inboundCalls > 0 ? Math.round((calls?.filter(call => call.status === 'failed' && call.tipo_de_llamada === 'inbound').length || 0) / inboundCalls * 100) : 0,
+      outboundFailureRate: outboundCalls > 0 ? Math.round((calls?.filter(call => call.status === 'failed' && call.tipo_de_llamada === 'outbound').length || 0) / outboundCalls * 100) : 0
     };
 
     // ✅ CALCULAR MÉTRICAS DE COSTO
@@ -420,15 +420,15 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
 
     // Costo por tipo de llamada
     const costoPorTipo = {
-      inbound: calls?.filter(call => call.direction === 'inbound')
+      inbound: calls?.filter(call => call.tipo_de_llamada === 'inbound')
                     .reduce((sum, call) => sum + calcularCostoLlamada(call.duration), 0) || 0,
-      outbound: calls?.filter(call => call.direction === 'outbound')
-                     .reduce((sum, call) => sum + calcularCostoLlamada(call.duration), 0) || 0
+      outbound: calls?.filter(call => call.tipo_de_llamada === 'outbound')
+                    .reduce((sum, call) => sum + calcularCostoLlamada(call.duration), 0) || 0
     };
 
     // Costo por agente
     const costoPorAgente = agents.map(agent => {
-      const agentCalls = calls?.filter(call => call.agent_id === agent.id) || [];
+      const agentCalls = calls?.filter(call => call.api === agent.id) || [];
       const costoAgente = agentCalls.reduce((sum, call) => sum + calcularCostoLlamada(call.duration), 0);
       return {
         agente: agent.name,
