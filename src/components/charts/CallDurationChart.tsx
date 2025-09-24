@@ -1,5 +1,9 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
+
+
+
+
 interface CallDurationChartProps {
   data: Array<{ name: string; duration: number }>;
 }
@@ -34,6 +38,8 @@ export const CallDurationChart = ({ data }: CallDurationChartProps) => {
           />
         </BarChart>
       </ResponsiveContainer>
+      
     </div>
+    
   );
 };

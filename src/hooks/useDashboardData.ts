@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { Database } from '@/integrations/supabase/types';
+
+type Call = Database['public']['Tables']['calls']['Row'];
 
 export interface DisconnectionReason {
   reason: string;
@@ -62,7 +65,6 @@ export interface DashboardData {
     }>;
   };
   disconnectMetrics?: DisconnectionMetrics;
-  // NUEVO: Datos para SuccessByHourChart
   successByHour: Array<{
     hour: string;
     successRate: number;
@@ -70,6 +72,43 @@ export interface DashboardData {
     successfulCalls: number;
   }>;
 }
+
+// FUNCIÓN PARA CONVERTIR "1m 54s" A SEGUNDOS
+const parseDurationToSeconds = (durationStr: string | null): number => {
+  if (!durationStr) return 0;
+  
+  // Extraer minutos y segundos usando regex
+  const minutesMatch = durationStr.match(/(\d+)m/);
+  const secondsMatch = durationStr.match(/(\d+)s/);
+  
+  const minutes = minutesMatch ? parseInt(minutesMatch[1]) : 0;
+  const seconds = secondsMatch ? parseInt(secondsMatch[1]) : 0;
+  
+  return (minutes * 60) + seconds;
+};
+
+// Función para manejar diferentes formatos de duración
+const parseDuration = (durationStr: string | null): number => {
+  if (!durationStr) return 0;
+  
+  // Si ya es un número (segundos)
+  if (/^\d+$/.test(durationStr)) {
+    return parseInt(durationStr);
+  }
+  
+  // Formato "1m 54s" (tu caso principal)
+  if (durationStr.includes('m') || durationStr.includes('s')) {
+    return parseDurationToSeconds(durationStr);
+  }
+  
+  // Formato MM:SS
+  if (/^\d+:\d+$/.test(durationStr)) {
+    const [minutes, seconds] = durationStr.split(':').map(Number);
+    return (minutes * 60) + seconds;
+  }
+  
+  return 0; // Por defecto
+};
 
 // Helper functions para categorizar las razones
 const categorizeDisconnectReason = (reason: string): 'ended' | 'not_connected' | 'error' => {
@@ -83,41 +122,7 @@ const categorizeDisconnectReason = (reason: string): 'ended' | 'not_connected' |
   return 'error';
 };
 
-const getFriendlyReasonName = (reason: string): string => {
-  const reasonNames: Record<string, string> = {
-    'user_hangup': 'Cliente colgó',
-    'agent_hangup': 'Agente colgó',
-    'voicemail_reached': 'Buzón de voz',
-    'inactivity': 'Inactividad',
-    'max_duration_reached': 'Tiempo máximo excedido',
-    'dial_busy': 'Línea ocupada',
-    'dial_failed': 'Llamada fallida',
-    'dial_no_answer': 'Sin respuesta',
-    'invalid_destination': 'Destino inválido',
-    'telephony_provider_permission_denied': 'Permiso denegado',
-    'telephony_provider_unavailable': 'Proveedor no disponible',
-    'sip_routing_error': 'Error de routing SIP',
-    'marked_as_spam': 'Marcado como spam',
-    'user_declined': 'Usuario rechazó',
-    'concurrency_limit_reached': 'Límite de concurrencia',
-    'no_valid_payment': 'Sin pago válido',
-    'scam_detected': 'Scam detectado',
-    'error_llm_websocket_open': 'Error conexión LLM',
-    'error_llm_websocket_lost_connection': 'Conexión LLM perdida',
-    'error_llm_websocket_runtime': 'Error runtime LLM',
-    'error_llm_websocket_corrupt_payload': 'Payload corrupto LLM',
-    'error_no_audio_received': 'Sin audio recibido',
-    'error_asr': 'Error ASR',
-    'error_retell': 'Error Retell',
-    'error_unknown': 'Error desconocido',
-    'error_user_not_joined': 'Usuario no se unió',
-    'registered_call_timeout': 'Timeout de llamada'
-  };
-  
-  return reasonNames[reason] || reason;
-};
-
-// Helper function to get week days in Spanish (SIN problemas de timezone)
+// Helper function to get week days in Spanish
 const getWeekDays = (): { id: number, name: string }[] => {
   return [
     { id: 1, name: 'Lun' },
@@ -130,22 +135,19 @@ const getWeekDays = (): { id: number, name: string }[] => {
   ];
 };
 
-// NUEVA FUNCIÓN: Calcular éxito por hora
-const calculateSuccessByHour = (calls: any[]): Array<{
+// Función para calcular éxito por hora
+const calculateSuccessByHour = (calls: Call[]): Array<{
   hour: string;
   successRate: number;
   totalCalls: number;
   successfulCalls: number;
 }> => {
-  // Crear objeto para agrupar por hora
   const hoursData: Record<number, { total: number; successful: number }> = {};
   
-  // Inicializar todas las horas (0-23)
   for (let hour = 0; hour < 24; hour++) {
     hoursData[hour] = { total: 0, successful: 0 };
   }
   
-  // Procesar cada llamada
   calls.forEach(call => {
     if (!call.started_at) return;
     
@@ -158,7 +160,6 @@ const calculateSuccessByHour = (calls: any[]): Array<{
     }
   });
   
-  // Convertir a array y calcular tasas
   return Object.entries(hoursData)
     .map(([hour, data]) => {
       const hourNum = parseInt(hour);
@@ -171,8 +172,8 @@ const calculateSuccessByHour = (calls: any[]): Array<{
         successfulCalls: data.successful
       };
     })
-    .filter(item => item.totalCalls > 0) // Solo mostrar horas con llamadas
-    .sort((a, b) => parseInt(a.hour) - parseInt(b.hour)); // Ordenar por hora
+    .filter(item => item.totalCalls > 0)
+    .sort((a, b) => parseInt(a.hour) - parseInt(b.hour));
 };
 
 // Fetch data from Supabase
@@ -246,8 +247,8 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
     const voicemailCalls = calls?.filter(call => call.status === 'voicemail').length || 0;
     const answeredCalls = calls?.filter(call => call.status !== 'missed' && call.status !== 'failed').length || 0;
     const failedCalls = calls?.filter(call => call.status === 'failed').length || 0;
- const inboundCalls = calls?.filter(call => call.tipo_de_llamada === 'inbound').length || 0;
-const outboundCalls = calls?.filter(call => call.tipo_de_llamada === 'outbound').length || 0;
+    const inboundCalls = calls?.filter(call => call.tipo_de_llamada === 'inbound').length || 0;
+    const outboundCalls = calls?.filter(call => call.tipo_de_llamada === 'outbound').length || 0;
 
     // Calculate rates
     const pickupRate = totalCalls > 0 ? Math.round((answeredCalls / totalCalls) * 100) : 0;
@@ -255,23 +256,10 @@ const outboundCalls = calls?.filter(call => call.tipo_de_llamada === 'outbound')
     const transferRate = totalCalls > 0 ? Math.round((transferredCalls / totalCalls) * 100) : 0;
     const voicemailRate = totalCalls > 0 ? Math.round((voicemailCalls / totalCalls) * 100) : 0;
 
-    // Get week days for charts (SIN problemas de timezone)
+    // Get week days for charts
     const weekDays = getWeekDays();
     
-    // DEBUG: Verificar datos
-    console.log('=== DEBUG DATOS ===');
-    console.log('Filtros aplicados:', filters);
-    console.log('Total llamadas obtenidas:', calls?.length);
-    console.log('Rango de fechas de llamadas:');
-    if (calls && calls.length > 0) {
-      const dates = calls.map(call => call.started_at).filter(Boolean);
-      if (dates.length > 0) {
-        console.log('Fecha más antigua:', new Date(Math.min(...dates.map(d => new Date(d).getTime()))));
-        console.log('Fecha más reciente:', new Date(Math.max(...dates.map(d => new Date(d).getTime()))));
-      }
-    }
-    
-    // 1. Volumen de llamadas por día (SOLUCIÓN ROBUSTA)
+    // 1. Volumen de llamadas por día
     const callVolume = weekDays.map(day => ({
       name: day.name,
       calls: calls?.filter(call => {
@@ -280,24 +268,29 @@ const outboundCalls = calls?.filter(call => call.tipo_de_llamada === 'outbound')
       }).length || 0
     }));
 
-    // 2. Duración promedio por día (SOLUCIÓN ROBUSTA)
+    // 2. Duración promedio por día (EN MINUTOS) - ACTUALIZADO
     const callDuration = weekDays.map(day => {
       const dayCalls = calls?.filter(call => {
         if (!call.started_at || !call.duration) return false;
         return new Date(call.started_at).getDay() === day.id;
       }) || [];
 
-      const avgDuration = dayCalls.length > 0 
-        ? dayCalls.reduce((sum, call) => sum + (call.duration || 0), 0) / dayCalls.length / 60
+      const totalMinutes = dayCalls.reduce((sum, call) => {
+        const seconds = parseDuration(call.duration);
+        return sum + (seconds / 60); // Convertir a minutos directamente
+      }, 0);
+
+      const avgDurationMinutes = dayCalls.length > 0 
+        ? totalMinutes / dayCalls.length
         : 0;
 
       return {
         name: day.name,
-        duration: Math.round(avgDuration * 10) / 10
+        duration: Math.round(avgDurationMinutes * 10) / 10 // Minutos con 1 decimal
       };
     });
 
-    // 3. Latencia promedio por día (SOLUCIÓN ROBUSTA)
+    // 3. Latencia promedio por día
     const latency = weekDays.map(day => {
       const dayCalls = calls?.filter(call => {
         if (!call.started_at || !call.latency) return false;
@@ -314,7 +307,7 @@ const outboundCalls = calls?.filter(call => call.tipo_de_llamada === 'outbound')
       };
     });
 
-    // 4. Llamadas entrantes vs salientes por día (SOLUCIÓN ROBUSTA)
+    // 4. Llamadas entrantes vs salientes por día
     const inboundOutbound = weekDays.map(day => ({
       name: day.name,
       entrantes: calls?.filter(call => {
@@ -327,7 +320,7 @@ const outboundCalls = calls?.filter(call => call.tipo_de_llamada === 'outbound')
       }).length || 0
     }));
 
-    // 5. NUEVO: Tasa de éxito por hora (DATOS REALES)
+    // 5. Tasa de éxito por hora
     const successByHour = calculateSuccessByHour(calls || []);
 
     // Calculate sentiment distribution
@@ -357,7 +350,7 @@ const outboundCalls = calls?.filter(call => call.tipo_de_llamada === 'outbound')
       }
     ];
 
-    // Calculate agent performance
+    // Calculate agent performance - ACTUALIZADO para usar parseDuration
     const agentPerformance = agents?.slice(0, 3).reduce((acc, agent, index) => {
       const agentCalls = calls?.filter(call => call.api === agent.id) || [];
       const agentName = `Agente ${index + 1}`;
@@ -370,11 +363,11 @@ const outboundCalls = calls?.filter(call => call.tipo_de_llamada === 'outbound')
         ? Math.round((agentCalls.filter(call => call.status === 'transferred').length / agentCalls.length) * 100)
         : 0;
       
-      const agentAvgDuration = agentCalls.length > 0
-        ? Math.round(agentCalls.reduce((sum, call) => sum + (call.duration || 0), 0) / agentCalls.length / 60)
+      // Duración promedio en minutos - ACTUALIZADO
+      const agentAvgDurationMinutes = agentCalls.length > 0
+        ? agentCalls.reduce((sum, call) => sum + (parseDuration(call.duration) / 60), 0) / agentCalls.length
         : 0;
 
-      // Mock values for satisfaction and calls per hour
       const satisfaction = Math.floor(Math.random() * 25) + 70;
       const callsPerHour = Math.floor(Math.random() * 20) + 70;
 
@@ -382,14 +375,14 @@ const outboundCalls = calls?.filter(call => call.tipo_de_llamada === 'outbound')
         acc = [
           { metric: 'Tasa de éxito', [agentName]: agentSuccessRate },
           { metric: 'Tasa de transferencia', [agentName]: agentTransferRate },
-          { metric: 'Duración promedio', [agentName]: agentAvgDuration },
+          { metric: 'Duración promedio (min)', [agentName]: Math.round(agentAvgDurationMinutes * 10) / 10 },
           { metric: 'Satisfacción cliente', [agentName]: satisfaction },
           { metric: 'Llamadas/hora', [agentName]: callsPerHour }
         ];
       } else {
         acc[0][agentName] = agentSuccessRate;
         acc[1][agentName] = agentTransferRate;
-        acc[2][agentName] = agentAvgDuration;
+        acc[2][agentName] = Math.round(agentAvgDurationMinutes * 10) / 10;
         acc[3][agentName] = satisfaction;
         acc[4][agentName] = callsPerHour;
       }
@@ -400,33 +393,33 @@ const outboundCalls = calls?.filter(call => call.tipo_de_llamada === 'outbound')
     // Métricas para fallos
     const failedMetrics = {
       totalFailed: failedCalls,
-failedInbound: calls?.filter(call => call.status === 'failed' && call.tipo_de_llamada === 'inbound').length || 0,
-failedOutbound: calls?.filter(call => call.status === 'failed' && call.tipo_de_llamada === 'outbound').length || 0,
+      failedInbound: calls?.filter(call => call.status === 'failed' && call.tipo_de_llamada === 'inbound').length || 0,
+      failedOutbound: calls?.filter(call => call.status === 'failed' && call.tipo_de_llamada === 'outbound').length || 0,
       failureRate: totalCalls > 0 ? Math.round((failedCalls / totalCalls) * 100) : 0,
       inboundFailureRate: inboundCalls > 0 ? Math.round((calls?.filter(call => call.status === 'failed' && call.tipo_de_llamada === 'inbound').length || 0) / inboundCalls * 100) : 0,
       outboundFailureRate: outboundCalls > 0 ? Math.round((calls?.filter(call => call.status === 'failed' && call.tipo_de_llamada === 'outbound').length || 0) / outboundCalls * 100) : 0
     };
 
-    // ✅ CALCULAR MÉTRICAS DE COSTO
-    const calcularCostoLlamada = (duration: number | null): number => {
-      if (!duration) return 0.0016; // Costo base si no hay duración
-      // Fórmula: 0.0016 USD + (0.016 USD por minuto)
-      return 0.0016 + (duration * 0.016 / 60);
+    // ✅ CALCULAR MÉTRICAS DE COSTO - ACTUALIZADO
+    const calcularCostoLlamada = (durationStr: string | null): number => {
+      const durationSeconds = parseDuration(durationStr);
+      const durationMinutes = durationSeconds / 60;
+      return 0.0016 + (durationMinutes * 0.016);
     };
 
     const totalCosto = calls?.reduce((sum, call) => sum + calcularCostoLlamada(call.duration), 0) || 0;
     const costoPromedioPorLlamada = totalCalls > 0 ? totalCosto / totalCalls : 0;
-    const costoPorMinuto = 0.016; // Tarifa fija por minuto
+    const costoPorMinuto = 0.016;
 
     // Costo por tipo de llamada
     const costoPorTipo = {
       inbound: calls?.filter(call => call.tipo_de_llamada === 'inbound')
                     .reduce((sum, call) => sum + calcularCostoLlamada(call.duration), 0) || 0,
       outbound: calls?.filter(call => call.tipo_de_llamada === 'outbound')
-                    .reduce((sum, call) => sum + calcularCostoLlamada(call.duration), 0) || 0
+                     .reduce((sum, call) => sum + calcularCostoLlamada(call.duration), 0) || 0
     };
 
-    // Costo por agente
+    // Costo por agente - ACTUALIZADO
     const costoPorAgente = agents.map(agent => {
       const agentCalls = calls?.filter(call => call.api === agent.id) || [];
       const costoAgente = agentCalls.reduce((sum, call) => sum + calcularCostoLlamada(call.duration), 0);
@@ -438,7 +431,7 @@ failedOutbound: calls?.filter(call => call.status === 'failed' && call.tipo_de_l
       };
     });
 
-    // Costo por día de la semana
+    // Costo por día de la semana - ACTUALIZADO
     const costoPorDia = weekDays.map(day => {
       const dayCalls = calls?.filter(call => {
         if (!call.started_at) return false;
@@ -453,7 +446,7 @@ failedOutbound: calls?.filter(call => call.status === 'failed' && call.tipo_de_l
       };
     });
 
-    // ✅ CALCULAR MÉTRICAS DE DESCONEXIÓN (NUEVO)
+    // ✅ CALCULAR MÉTRICAS DE DESCONEXIÓN
     const disconnectReasonCounts: Record<string, number> = {};
 
     calls?.forEach((call: any) => {
@@ -462,9 +455,8 @@ failedOutbound: calls?.filter(call => call.status === 'failed' && call.tipo_de_l
       }
     });
 
-    // También necesitas actualizar otras partes donde uses 'call'
     const totalCallsWithDisconnectReason = Object.values(disconnectReasonCounts).reduce((sum, count) => sum + count, 0);
-    // Formatear razones de desconexión
+    
     const disconnectReasons = Object.entries(disconnectReasonCounts)
       .map(([reason, count]) => ({
         reason,
@@ -474,7 +466,6 @@ failedOutbound: calls?.filter(call => call.status === 'failed' && call.tipo_de_l
       }))
       .sort((a, b) => b.count - a.count);
 
-    // Calcular totales por categoría
     const byCategory = disconnectReasons.reduce((acc, item) => {
       acc[item.category] = (acc[item.category] || 0) + item.count;
       return acc;
@@ -510,16 +501,13 @@ failedOutbound: calls?.filter(call => call.status === 'failed' && call.tipo_de_l
         costoPorAgente,
         costoPorDia
       },
-      // ✅ NUEVO: Métricas de desconexión
       disconnectMetrics,
-      // ✅ NUEVO: Datos reales para SuccessByHourChart
       successByHour
     };
 
   } catch (error) {
     console.error('Error fetching data from Supabase:', error);
     
-    // Return default empty data on error
     const weekDays = getWeekDays();
     const emptyDayData = weekDays.map(day => ({ name: day.name, calls: 0 }));
     
@@ -566,7 +554,6 @@ failedOutbound: calls?.filter(call => call.status === 'failed' && call.tipo_de_l
         },
         reasons: []
       },
-      // ✅ Datos vacíos para SuccessByHourChart en caso de error
       successByHour: []
     };
   }
@@ -597,7 +584,6 @@ export const useDashboardData = () => {
     channel: 'all',
   });
 
-  // Fetch agents list
   const fetchAgents = async () => {
     try {
       const { data: agentsData, error } = await supabase
@@ -631,7 +617,6 @@ export const useDashboardData = () => {
     }
   };
 
-  // Load initial data and agents
   useEffect(() => {
     fetchAgents();
     updateData({});
