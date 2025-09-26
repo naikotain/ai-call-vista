@@ -292,6 +292,7 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
 
     // DEBUG: Verificar datos reales
     console.log('=== DEBUG MÉTRICAS PRINCIPALES ===');
+    
     console.log('Total calls:', totalCalls);
     console.log('Successful calls:', successfulCalls);
     console.log('Success rate:', successRate + '%');

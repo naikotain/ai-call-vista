@@ -1,18 +1,33 @@
+import { useState } from 'react';
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { FiltersSection } from "@/components/dashboard/FiltersSection";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
+import { CallsTable } from "@/components/calls/CallsTable";
+import { NavigationMenu } from "@/components/dashboard/NavigationMenu";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent } from "@/components/ui/card";
 
 const Index = () => {
   const { data, agents, loading, filters, updateData } = useDashboardData();
+  const [activeView, setActiveView] = useState<'dashboard' | 'call-table'>('dashboard');
 
   if (!data && loading) {
     return (
       <div className="min-h-screen bg-background">
         <DashboardHeader />
         <div className="container mx-auto px-4 space-y-6">
+          {/* Navigation Menu Skeleton */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex space-x-2">
+                <Skeleton className="h-10 w-32" />
+                <Skeleton className="h-10 w-40" />
+              </div>
+            </CardContent>
+          </Card>
+          
           <Skeleton className="h-24 w-full" />
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
             {[...Array(4)].map((_, i) => (
@@ -70,58 +85,75 @@ const Index = () => {
       <DashboardHeader />
       
       <div className="container mx-auto px-4 space-y-6">
-        <FiltersSection 
-          filters={filters}
-          onFilterChange={updateData}
-          agents={agents}
-          loading={loading}
+        {/* Menú de Navegación */}
+        <NavigationMenu 
+          activeView={activeView} 
+          onViewChange={setActiveView} 
         />
-        
-        {/* Main Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-          {metrics.map((metric, index) => (
-            <MetricCard
-              key={index}
-              value={metric.value}
-              label={metric.label}
-              variant={metric.variant}
-              trend={metric.trend}
+
+        {/* Vista del Dashboard */}
+        {activeView === 'dashboard' && (
+          <>
+            {/* Filtros (solo en dashboard) */}
+            <FiltersSection 
+              filters={filters}
+              onFilterChange={updateData}
+              agents={agents}
               loading={loading}
             />
-          ))}
-        </div>
+            
+            {/* Main Metrics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+              {metrics.map((metric, index) => (
+                <MetricCard
+                  key={index}
+                  value={metric.value}
+                  label={metric.label}
+                  variant={metric.variant}
+                  trend={metric.trend}
+                  loading={loading}
+                />
+              ))}
+            </div>
 
-        {/* Nuevas Tarjetas de Conteo */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <MetricCard
-            value={totalCalls.toString()}
-            label="Total Llamadas"
-            variant="info"
-            description="Conteo total con filtros aplicados"
-            loading={loading}
-          />
-          <MetricCard
-            value={totalInbound.toString()}
-            label="Llamadas Entrantes"
-            variant="info"
-            description="Llamadas recibidas"
-            loading={loading}
-          />
-          <MetricCard
-            value={totalOutbound.toString()}
-            label="Llamadas Salientes"
-            variant="info"
-            description="Llamadas realizadas"
-            loading={loading}
-          />
-        </div>
+            {/* Tarjetas de Conteo */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <MetricCard
+                value={totalCalls.toString()}
+                label="Total Llamadas"
+                variant="info"
+                description="Conteo total con filtros aplicados"
+                loading={loading}
+              />
+              <MetricCard
+                value={totalInbound.toString()}
+                label="Llamadas Entrantes"
+                variant="info"
+                description="Llamadas recibidas"
+                loading={loading}
+              />
+              <MetricCard
+                value={totalOutbound.toString()}
+                label="Llamadas Salientes"
+                variant="info"
+                description="Llamadas realizadas"
+                loading={loading}
+              />
+            </div>
 
-        {/* Dashboard Tabs con datos filtrados - AHORA INCLUYE LA PESTAÑA DE COSTOS */}
-        {data && (
-          <DashboardTabs 
-            data={data} 
-            loading={loading}
-          />
+            {/* Dashboard Tabs */}
+            {data && (
+              <DashboardTabs 
+                data={data} 
+                loading={loading}
+              />
+            )}
+          </>
+        )}
+
+        {/* Vista de Tabla de Llamadas */}
+        {activeView === 'call-table' && (
+          <CallsTable />
         )}
       </div>
     </div>
