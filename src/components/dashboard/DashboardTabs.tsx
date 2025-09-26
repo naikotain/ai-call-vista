@@ -15,6 +15,25 @@ import { CostCharts } from "@/components/charts/CostCharts";
 import { DisconnectionReasonsChart } from '@/components/charts/DisconnectionReasonsChart';
 import { DisconnectionChart } from '@/components/charts/DisconnectionChart';
 
+// ✅ AÑADE ESTA FUNCIÓN AL INICIO DEL ARCHIVO
+const formatDuration = (minutes: number): string => {
+  if (minutes === 0) return '0 seg';
+  
+  const totalSeconds = Math.round(minutes * 60);
+  const mins = Math.floor(totalSeconds / 60);
+  const segs = totalSeconds % 60;
+  
+  if (mins === 0) return `${segs} seg`;
+  if (segs === 0) return `${mins} min`;
+  
+  return `${mins} min ${segs} seg`;
+};
+
+interface DashboardTabsProps {
+  data: DashboardData;
+  loading?: boolean;
+}
+
 interface DashboardTabsProps {
   data: DashboardData;
   loading?: boolean;
@@ -47,11 +66,12 @@ const MetricCards = ({ data }: { data: DashboardData }) => (
       </CardContent>
     </Card>
     
+
     <Card className="shadow-metric border-l-4 border-l-orange-500">
       <CardContent className="p-4">
         <div className="text-sm font-medium text-muted-foreground">Duración Promedio</div>
         <div className="text-2xl font-bold text-orange-600">
-          {((data.callDuration.reduce((sum, day) => sum + day.duration, 0)) / data.callDuration.length).toFixed(1)} min
+          {formatDuration(data.averageDuration)}
         </div>
         <div className="text-xs text-muted-foreground">Por llamada</div>
       </CardContent>

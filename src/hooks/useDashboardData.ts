@@ -24,6 +24,10 @@ export interface DisconnectionMetrics {
 export interface DashboardData {
   pickupRate: number;
   successRate: number;
+  averageDuration: number; // ✅ NUEVA PROPiedad
+  totalCalls: number;      // ✅ NUEVA
+  totalInbound: number;    // ✅ NUEVA  
+  totalOutbound: number;   // ✅ NUEVA
   transferRate: number;
   voicemailRate: number;
   callVolume: Array<{ name: string; calls: number }>;
@@ -133,6 +137,28 @@ const getWeekDays = (): { id: number, name: string }[] => {
     { id: 6, name: 'Sáb' },
     { id: 0, name: 'Dom' }
   ];
+};
+
+export const formatDuration = (minutes: number): string => {
+  if (minutes === 0) return '0 seg';
+  
+  const totalSeconds = Math.round(minutes * 60);
+  const mins = Math.floor(totalSeconds / 60);
+  const segs = totalSeconds % 60;
+  
+  if (mins === 0) return `${segs} seg`;
+  if (segs === 0) return `${mins} min`;
+  
+  return `${mins} min ${segs} seg`;
+};
+
+// Alternativa formato MM:SS
+export const formatDurationMMSS = (minutes: number): string => {
+  const totalSeconds = Math.round(minutes * 60);
+  const mins = Math.floor(totalSeconds / 60);
+  const segs = totalSeconds % 60;
+  
+  return `${mins}:${segs.toString().padStart(2, '0')}`;
 };
 
 // Función para calcular éxito por hora
@@ -249,6 +275,10 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
     const failedCalls = calls?.filter(call => call.status === 'failed').length || 0;
     const inboundCalls = calls?.filter(call => call.tipo_de_llamada === 'inbound').length || 0;
     const outboundCalls = calls?.filter(call => call.tipo_de_llamada === 'outbound').length || 0;
+    const totalSeconds = calls?.reduce((sum, call) => sum + parseDuration(call.duration), 0) || 0;
+    const averageDurationSeconds = totalCalls > 0 ? totalSeconds / totalCalls : 0;
+    const averageDurationMinutes = averageDurationSeconds / 60;
+    const averageDurationFormatted = Math.round(averageDurationMinutes * 10) / 10; // 3.8 min
 
     // Calculate rates
     const pickupRate = totalCalls > 0 ? Math.round((answeredCalls / totalCalls) * 100) : 0;
@@ -486,6 +516,10 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
       successRate,
       transferRate,
       voicemailRate,
+      averageDuration: averageDurationFormatted, // ✅ AÑADIR ESTA LÍNEA
+      totalCalls,
+      totalInbound: inboundCalls,
+      totalOutbound: outboundCalls,
       callVolume,
       callDuration,
       latency,
@@ -515,6 +549,10 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
       pickupRate: 0,
       successRate: 0,
       transferRate: 0,
+      averageDuration: 0, // ✅ AÑADIR ESTA LÍNEA
+      totalCalls: 0,
+      totalInbound: 0,
+      totalOutbound: 0,
       voicemailRate: 0,
       callVolume: emptyDayData,
       callDuration: emptyDayData.map(d => ({ name: d.name, duration: 0 })),
