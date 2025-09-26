@@ -314,7 +314,7 @@ export const DashboardTabs = ({ data, loading }: DashboardTabsProps) => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {loading ? <ChartSkeleton /> : <SentimentTrendChart />}
+                {loading ? <ChartSkeleton /> :<SentimentTrendChart data={data} loading={loading} />}
               </CardContent>
             </Card>
           </div>
