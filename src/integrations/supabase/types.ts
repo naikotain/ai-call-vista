@@ -68,54 +68,64 @@ export type Database = {
         ]
       }
       calls: {
-Row: {
-    api: string | null;
-    objetivo_de_llamada: string | null;
-    channel: string | null;
-    customer_phone: string;
-    tipo_de_llamada: string;
-    duration: string | null;  // ← CAMBIADO de number a string
-    ended_at: string | null;
-    id: string;
-    latency: number | null;
-    sentiment: string | null;
-    started_at: string;
-    status: string;
-    disconnect_reason: string | null;
-    date: string | null;
-  }
-  Insert: {
-    api?: string | null;
-    objetivo_de_la_llamada?: string | null;
-    channel?: string | null;
-    customer_phone: string;
-    tipo_de_llamada: string;
-    duration?: string | null;  // ← CAMBIADO
-    ended_at?: string | null;
-    id?: string;
-    latency?: number | null;
-    sentiment?: string | null;
-    started_at?: string;
-    status: string;
-    disconnect_reason?: string | null;
-    date?: string | null;
-  }
-  Update: {
-    api?: string | null;
-    objetivo_de_la_llamada?: string | null;
-    channel?: string | null;
-    customer_phone?: string;
-    tipo_de_llamada?: string;
-    duration?: string | null;  // ← CAMBIADO
-    ended_at?: string | null;
-    id?: string;
-    latency?: number | null;
-    sentiment?: string | null;
-    started_at?: string;
-    status?: string;
-    disconnect_reason?: string | null;
-    date?: string | null;
-  }
+      Row: {
+          api: string | null;
+          objetivo_de_llamada: string | null;
+          channel: string | null;
+          customer_phone: string;
+          tipo_de_llamada: string;
+          duration: string | null;  // ← CAMBIADO de number a string
+          ended_at: string | null;
+          id: string;
+          latency: number | null;
+          sentiment: string | null;
+          started_at: string;
+          status: string;
+          disconnect_reason: string | null;
+          date: string | null;
+          retell_cost: number | null
+          country_code: string | null
+          country_name: string | null
+
+        }
+        Insert: {
+          api?: string | null;
+          objetivo_de_la_llamada?: string | null;
+          channel?: string | null;
+          customer_phone: string;
+          tipo_de_llamada: string;
+          duration?: string | null;  // ← CAMBIADO
+          ended_at?: string | null;
+          id?: string;
+          latency?: number | null;
+          sentiment?: string | null;
+          started_at?: string;
+          status: string;
+          disconnect_reason?: string | null;
+          date?: string | null;
+          retell_cost?: number | null
+          country_code?: string | null
+          country_name?: string | null
+        }
+        Update: {
+          api?: string | null;
+          objetivo_de_la_llamada?: string | null;
+          channel?: string | null;
+          customer_phone?: string;
+          tipo_de_llamada?: string;
+          duration?: string | null;  // ← CAMBIADO
+          ended_at?: string | null;
+          id?: string;
+          latency?: number | null;
+          sentiment?: string | null;
+          started_at?: string;
+          status?: string;
+          disconnect_reason?: string | null;
+          date?: string | null;
+          retell_cost?: number | null
+          country_code?: string | null
+          country_name?: string | null
+        }
         Relationships: [
           {
             foreignKeyName: "calls_api_fkey"  // ← NUEVO NOMBRE

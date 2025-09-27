@@ -26,7 +26,14 @@ import {
 
 type Call = Database['public']['Tables']['calls']['Row'] & {
   agents?: { name: string } | null;
+} & {
+  // ✅ AÑADIR ESTAS PROPIEDADES FALTANTES
+  country_code?: string;
+  retell_cost?: number;
+  costo?: number;
+  country_name?: string;
 };
+
 
 export const CallsTable = () => {
   const [calls, setCalls] = useState<Call[]>([]);
@@ -64,6 +71,29 @@ export const CallsTable = () => {
     if (!duration) return 'N/A';
     return duration; // Ya está en formato "1m 30s"
   };
+
+  const parseDuration = (durationStr: string | null): number => {
+  if (!durationStr) return 0;
+  
+  const minutesMatch = durationStr.match(/(\d+)m/);
+  const secondsMatch = durationStr.match(/(\d+)s/);
+  
+  const minutes = minutesMatch ? parseInt(minutesMatch[1]) : 0;
+  const seconds = secondsMatch ? parseInt(secondsMatch[1]) : 0;
+  
+  return (minutes * 60) + seconds;
+};
+  const calculateCallCost = (retellCost: number, duration: string, countryCode: string): number => {
+  const minutos = parseDuration(duration) / 60;
+  const COUNTRY_COSTS = {
+    'CL': 0.04,
+    'AR': 0.0019, 
+    'MX': 0.02,
+    'ES': 0.91
+  };
+  const costoPorMinuto = COUNTRY_COSTS[countryCode as keyof typeof COUNTRY_COSTS] || 0.04;
+  return retellCost + (minutos * costoPorMinuto);
+};
 
   // Función para formatear fecha
   const formatDate = (dateString: string | null) => {
@@ -191,12 +221,16 @@ export const CallsTable = () => {
                   <TableHead>Duración</TableHead>
                   <TableHead>Canal</TableHead>
                   <TableHead>Sentimiento</TableHead>
+                  <TableHead>País</TableHead> {/* NUEVA COLUMNA */}
+                  <TableHead>Costo Retell</TableHead> {/* NUEVA COLUMNA */}
+                  <TableHead>Costo Llamada</TableHead> {/* NUEVA COLUMNA */}
+                  <TableHead>Costo Total</TableHead> 
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredCalls.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground"> {/* Cambia de 8 a 12 */}
                       No se encontraron llamadas
                     </TableCell>
                   </TableRow>
@@ -225,11 +259,38 @@ export const CallsTable = () => {
                             call.sentiment === 'negative' ? 'destructive' : 'outline'
                           }>
                             {call.sentiment === 'positive' ? 'Positivo' :
-                             call.sentiment === 'negative' ? 'Negativo' : 'Neutral'}
+                            call.sentiment === 'negative' ? 'Negativo' : 'Neutral'}
                           </Badge>
                         ) : (
                           'N/A'
                         )}
+                      </TableCell>
+                      
+                      {/* ✅ AÑADIR ESTAS NUEVAS CELDAS DE COSTOS */}
+                      <TableCell>
+                        {call.country_code ? (
+                          <Badge variant="outline">
+                            {call.country_code === 'CL' ? '🇨🇱 Chile' :
+                            call.country_code === 'AR' ? '🇦🇷 Argentina' :
+                            call.country_code === 'MX' ? '🇲🇽 México' :
+                            call.country_code === 'ES' ? '🇪🇸 España' :
+                            call.country_code}
+                          </Badge>
+                        ) : (
+                          'N/A'
+                        )}
+                      </TableCell>
+                      
+                      <TableCell className="text-right">
+                        ${(call.retell_cost || 0).toFixed(4)}
+                      </TableCell>
+                      
+                      <TableCell className="text-right">
+                        ${((call.costo || 0) - (call.retell_cost || 0)).toFixed(4)}
+                      </TableCell>
+                      
+                      <TableCell className="text-right font-medium">
+                        ${(call.costo || 0).toFixed(4)}
                       </TableCell>
                     </TableRow>
                   ))

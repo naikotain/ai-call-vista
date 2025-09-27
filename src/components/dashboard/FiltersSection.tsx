@@ -1,6 +1,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { DashboardFilters, Agent } from "@/hooks/useDashboardData";
+import { COUNTRY_COSTS, getCountryCost } from "@/config/countryCosts"; // Importar la configuración de países
 
 interface FiltersSectionProps {
   filters: DashboardFilters;
@@ -9,10 +10,21 @@ interface FiltersSectionProps {
   loading: boolean;
 }
 
+
+
+// Configuración de países para el filtro
+const COUNTRIES_FOR_FILTER = [
+  { code: 'CL', name: 'Chile', flag: '🇨🇱' },
+  { code: 'AR', name: 'Argentina', flag: '🇦🇷' },
+  { code: 'MX', name: 'México', flag: '🇲🇽' },
+  { code: 'ES', name: 'España', flag: '🇪🇸' }
+];
+
 export const FiltersSection = ({ filters, onFilterChange, agents, loading }: FiltersSectionProps) => {
   return (
     <Card className="p-6 mb-6 shadow-metric">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Filtro de Agente */}
         <div>
           <label className="text-sm font-medium text-muted-foreground mb-2 block">
             Agente
@@ -36,6 +48,7 @@ export const FiltersSection = ({ filters, onFilterChange, agents, loading }: Fil
           </Select>
         </div>
         
+        {/* Filtro de Tipo de Llamada */}
         <div>
           <label className="text-sm font-medium text-muted-foreground mb-2 block">
             Tipo de llamada
@@ -55,7 +68,32 @@ export const FiltersSection = ({ filters, onFilterChange, agents, loading }: Fil
             </SelectContent>
           </Select>
         </div>
+
+        {/* Filtro de País - CORREGIDO */}
+        <div>
+          <label className="text-sm font-medium text-muted-foreground mb-2 block">
+            País
+          </label>
+          <Select 
+            value={filters.country} 
+            onValueChange={(value) => onFilterChange({ country: value })}
+            disabled={loading}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Todos los países" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los países</SelectItem>
+              {COUNTRIES_FOR_FILTER.map((country) => (
+                <SelectItem key={country.code} value={country.code}>
+                  {country.flag} {country.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         
+        {/* Filtro de Estado */}
         <div>
           <label className="text-sm font-medium text-muted-foreground mb-2 block">
             Estado
@@ -78,6 +116,7 @@ export const FiltersSection = ({ filters, onFilterChange, agents, loading }: Fil
           </Select>
         </div>
         
+        {/* Filtro de Canal */}
         <div>
           <label className="text-sm font-medium text-muted-foreground mb-2 block">
             Canal
@@ -97,7 +136,30 @@ export const FiltersSection = ({ filters, onFilterChange, agents, loading }: Fil
             </SelectContent>
           </Select>
         </div>
+
+        {/* Filtro de Rango de Tiempo */}
+        <div>
+          <label className="text-sm font-medium text-muted-foreground mb-2 block">
+            Período
+          </label>
+          <Select 
+            value={filters.timeRange} 
+            onValueChange={(value) => onFilterChange({ timeRange: value })}
+            disabled={loading}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Período" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todo el período</SelectItem>
+              <SelectItem value="today">Hoy</SelectItem>
+              <SelectItem value="week">Última semana</SelectItem>
+              <SelectItem value="month">Último mes</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
     </Card>
   );
 };
+

@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
+import { COUNTRY_COSTS, calculateCallCost, getCountryCost } from '@/config/countryCosts';
 
+// Usa el tipo correcto de la base de datos
 type Call = Database['public']['Tables']['calls']['Row'];
 
 export interface DisconnectionReason {
@@ -21,7 +23,6 @@ export interface DisconnectionMetrics {
   reasons: DisconnectionReason[];
 }
 
-// Nueva interfaz para agent performance dinámico
 export interface AgentPerformanceData {
   metric: string;
   [agentName: string]: number | string;
@@ -42,10 +43,10 @@ export interface DashboardData {
   inboundOutbound: Array<{ name: string; entrantes: number; salientes: number }>;
   sentiment: Array<{ name: string; value: number; color: string }>;
   sentimentTrend: Array<{
-    name: string;        // "Lun", "Mar", etc.
-    positivo: number;    // % de sentimiento positivo
-    neutral?: number;    // Opcional: % neutral  
-    negativo?: number;   // Opcional: % negativo
+    name: string;
+    positivo: number;
+    neutral?: number;
+    negativo?: number;
   }>;
   agentPerformance: AgentPerformanceData[];
   failedMetrics?: {
@@ -74,6 +75,19 @@ export interface DashboardData {
       name: string;
       costo: number;
     }>;
+    costoPorPais: Array<{
+      pais: string;
+      codigo: string;
+      costo: number;
+      llamadas: number;
+      costoPromedio: number;
+      bandera?: string;
+    }>;
+    desgloseCostos: {
+      totalRetell: number;
+      totalLlamadas: number;
+      porcentajeRetell: number; 
+    };
   };
   disconnectMetrics?: DisconnectionMetrics;
   successByHour: Array<{
@@ -181,7 +195,6 @@ const calculateSuccessByHour = (calls: Call[]): Array<{
     if (!call.started_at) return;
     
     const callHour = new Date(call.started_at).getHours();
-    // ✅ CORREGIDO: Solo 'successful'
     const isSuccessful = call.status === 'successful';
     
     hoursData[callHour].total += 1;
@@ -206,6 +219,149 @@ const calculateSuccessByHour = (calls: Call[]): Array<{
     .sort((a, b) => parseInt(a.hour) - parseInt(b.hour));
 };
 
+// NUEVA FUNCIÓN: Calcular costos con sistema por país
+const calcularCostosConSistemaPais = (calls: Call[]) => {
+  let totalCosto = 0;
+  let totalRetellCost = 0;
+  let totalCallCost = 0;
+  let totalMinutos = 0; 
+  
+  const costoPorPais: Record<string, { costo: number; llamadas: number }> = {};
+  const costoPorTipo = { inbound: 0, outbound: 0 };
+  const costoPorAgente: Record<string, { costo: number; llamadas: number }> = {};
+  const costoPorDia: Record<string, number> = {};
+  const minutosPorDia: Record<string, number> = {};
+  
+
+  calls.forEach(call => {
+    // Usar country_code o default a Chile para datos antiguos
+    const countryCode = call.country_code || 'CL';
+    const retellCost = call.retell_cost || 0;
+    
+    // Calcular costo usando el nuevo sistema
+    const costoTotal = calculateCallCost(retellCost, call.duration || '0m', countryCode);
+    const costoLlamada = costoTotal - retellCost;
+    const minutos = parseDuration(call.duration || '0m') / 60; // ✅ CALCULAR MINUTOS
+    
+    totalCosto += costoTotal;
+    totalRetellCost += retellCost;
+    totalCallCost += costoLlamada;
+    totalMinutos += minutos;
+
+    // Acumular por país
+    if (!costoPorPais[countryCode]) {
+      costoPorPais[countryCode] = { costo: 0, llamadas: 0 };
+    }
+    costoPorPais[countryCode].costo += costoTotal;
+    costoPorPais[countryCode].llamadas += 1;
+
+    // Acumular por tipo
+    if (call.tipo_de_llamada === 'inbound') {
+      costoPorTipo.inbound += costoTotal;
+    } else {
+      costoPorTipo.outbound += costoTotal;
+    }
+
+    // Acumular por agente
+    const agentId = call.api || 'unknown';
+    if (!costoPorAgente[agentId]) {
+      costoPorAgente[agentId] = { costo: 0, llamadas: 0 };
+    }
+    costoPorAgente[agentId].costo += costoTotal;
+    costoPorAgente[agentId].llamadas += 1;
+
+
+    // ✅ ACUMULAR COSTOS POR DÍA CORRECTAMENTE
+    if (call.started_at) {
+      const fecha = new Date(call.started_at);
+      const diaSemana = fecha.toLocaleDateString('es-ES', { weekday: 'long' }); // "lunes", "martes", etc.
+      const diaKey = diaSemana.toLowerCase(); // Para consistencia
+      
+      costoPorDia[diaKey] = (costoPorDia[diaKey] || 0) + costoTotal;
+      minutosPorDia[diaKey] = (minutosPorDia[diaKey] || 0) + minutos;
+    }
+  });
+
+  const costoPorMinuto = totalMinutos > 0 ? totalCosto / totalMinutos : 0;
+  const diasSemana = [
+    { key: 'lunes', name: 'Lun', orden: 0 },
+    { key: 'martes', name: 'Mar', orden: 1 },
+    { key: 'miércoles', name: 'Mié', orden: 2 },
+    { key: 'jueves', name: 'Jue', orden: 3 },
+    { key: 'viernes', name: 'Vie', orden: 4 },
+    { key: 'sábado', name: 'Sáb', orden: 5 },
+    { key: 'domingo', name: 'Dom', orden: 6 }
+  ];
+
+    
+
+  
+  // Formatear costo por país para el dashboard
+  const costoPorPaisFormateado = Object.entries(costoPorPais).map(([codigo, data]) => {
+    const country = getCountryCost(codigo);
+    const porcentaje = totalCosto > 0 ? (data.costo / totalCosto) * 100 : 0;
+    return {
+      pais: country.name,
+      codigo,
+      costo: parseFloat(data.costo.toFixed(6)),
+      llamadas: data.llamadas,
+      costoPromedio: data.llamadas > 0 ? parseFloat((data.costo / data.llamadas).toFixed(6)) : 0,
+      porcentaje: parseFloat(porcentaje.toFixed(2)),
+      bandera: country.flag
+    };
+  });
+
+  // Formatear costo por agente
+  const costoPorAgenteFormateado = Object.entries(costoPorAgente).map(([agentId, data]) => ({
+    agente: agentId,
+    costo: parseFloat(data.costo.toFixed(6)),
+    llamadas: data.llamadas,
+    costoPromedio: data.llamadas > 0 ? parseFloat((data.costo / data.llamadas).toFixed(6)) : 0
+  }));
+
+  // Formatear costo por día
+  const weekDays = getWeekDays();
+  const costoPorDiaFormateado = diasSemana.map(dia => ({
+    name: dia.name,
+    costo: parseFloat((costoPorDia[dia.key] || 0).toFixed(6)),
+    minutos: minutosPorDia[dia.key] || 0,
+    costoPorMinuto: (minutosPorDia[dia.key] || 0) > 0 
+      ? parseFloat(((costoPorDia[dia.key] || 0) / (minutosPorDia[dia.key] || 1)).toFixed(6))
+      : 0
+  }));
+  
+
+  return {
+    totalCosto: parseFloat(totalCosto.toFixed(6)),
+    costoPromedioPorLlamada: calls.length > 0 ? parseFloat((totalCosto / calls.length).toFixed(6)) : 0,
+    costoPorMinuto: parseFloat(costoPorMinuto.toFixed(6)), // Ya no es fijo, se calcula por país
+    costoPorTipo,
+    costoPorAgente: costoPorAgenteFormateado,
+    costoPorDia: costoPorDiaFormateado,
+    costoPorPais: costoPorPaisFormateado, 
+    desgloseCostos: {
+      totalRetell: parseFloat(totalRetellCost.toFixed(6)),
+      totalLlamadas: parseFloat(totalCallCost.toFixed(6)),
+      porcentajeRetell: totalCosto > 0 ? parseFloat(((totalRetellCost / totalCosto) * 100).toFixed(2)) : 0,
+      porcentajeLlamada: totalCosto > 0 ? parseFloat(((totalCallCost / totalCosto) * 100).toFixed(2)) : 0
+    }
+  };
+};
+
+export interface Agent {
+  id: string;
+  name: string;
+}
+
+export interface DashboardFilters {
+  agent: string;
+  timeRange: string;
+  callType: string;
+  status: string;
+  channel: string;
+  country: string;
+}
+
 // Fetch data from Supabase
 async function fetchDataFromSupabase(filters: DashboardFilters): Promise<DashboardData> {
   try {
@@ -228,6 +384,11 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
 
     if (filters.channel !== 'all') {
       query = query.eq('channel', filters.channel);
+    }
+
+    // NUEVO: Aplicar filtro por país
+    if (filters.country !== 'all') {
+      query = query.eq('country_code', filters.country);
     }
 
     // Aplicar filtro de rango de tiempo
@@ -292,14 +453,9 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
 
     // DEBUG: Verificar datos reales
     console.log('=== DEBUG MÉTRICAS PRINCIPALES ===');
-    
     console.log('Total calls:', totalCalls);
     console.log('Successful calls:', successfulCalls);
     console.log('Success rate:', successRate + '%');
-    console.log('Status counts:', calls?.reduce((acc, call) => {
-      acc[call.status] = (acc[call.status] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>));
 
     // Get week days for charts
     const weekDays = getWeekDays();
@@ -395,47 +551,39 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
       }
     ];
 
-  const sentimentTrend = weekDays.map(day => {
-    const dayCalls = calls?.filter(call => {
-      if (!call.started_at) return false;
-      return new Date(call.started_at).getDay() === day.id;
-    }) || [];
+    const sentimentTrend = weekDays.map(day => {
+      const dayCalls = calls?.filter(call => {
+        if (!call.started_at) return false;
+        return new Date(call.started_at).getDay() === day.id;
+      }) || [];
 
-    const totalCallsWithSentiment = dayCalls.filter(call => call.sentiment).length;
-    
-    if (totalCallsWithSentiment === 0) {
+      const totalCallsWithSentiment = dayCalls.filter(call => call.sentiment).length;
+      
+      if (totalCallsWithSentiment === 0) {
+        return {
+          name: day.name,
+          positivo: 0,
+          neutral: 0,
+          negativo: 0
+        };
+      }
+
+      const positiveCalls = dayCalls.filter(call => call.sentiment === 'positive').length;
+      const neutralCalls = dayCalls.filter(call => call.sentiment === 'neutral').length;
+      const negativeCalls = dayCalls.filter(call => call.sentiment === 'negative').length;
+
       return {
         name: day.name,
-        positivo: 0,
-        neutral: 0,
-        negativo: 0
+        positivo: Math.round((positiveCalls / totalCallsWithSentiment) * 100),
+        neutral: Math.round((neutralCalls / totalCallsWithSentiment) * 100),
+        negativo: Math.round((negativeCalls / totalCallsWithSentiment) * 100)
       };
-    }
-
-    const positiveCalls = dayCalls.filter(call => call.sentiment === 'positive').length;
-    const neutralCalls = dayCalls.filter(call => call.sentiment === 'neutral').length;
-    const negativeCalls = dayCalls.filter(call => call.sentiment === 'negative').length;
-
-    return {
-      name: day.name,
-      positivo: Math.round((positiveCalls / totalCallsWithSentiment) * 100),
-      neutral: Math.round((neutralCalls / totalCallsWithSentiment) * 100),
-      negativo: Math.round((negativeCalls / totalCallsWithSentiment) * 100)
-    };
-  });
+    });
 
     // ✅ AGENT PERFORMANCE CORREGIDO
     const agentPerformanceData = agents?.map(agent => {
       const agentCalls = calls?.filter(call => call.api === agent.id) || [];
       const totalCalls = agentCalls.length;
-      
-      console.log(`Procesando agente ${agent.name}:`, { 
-        totalCalls, 
-        statuses: agentCalls.reduce((acc, call) => {
-          acc[call.status] = (acc[call.status] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>)
-      });
 
       if (totalCalls === 0) {
         return {
@@ -449,7 +597,6 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
         };
       }
 
-      // ✅ CORREGIDO: Usar "successful" (con "s")
       const successfulCalls = agentCalls.filter(call => call.status === 'successful').length;
       const transferredCalls = agentCalls.filter(call => call.status === 'transferred').length;
 
@@ -471,7 +618,7 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
       const totalHours = totalDurationMinutes / 60;
       const callsPerHour = totalHours > 0 ? Math.round(totalCalls / totalHours) : 0;
 
-      const result = {
+      return {
         agentName: agent.name,
         successRate: Math.round((successfulCalls / totalCalls) * 100),
         transferRate: Math.round((transferredCalls / totalCalls) * 100),
@@ -480,9 +627,6 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
         satisfaction,
         callsPerHour: callsPerHour || Math.round(totalCalls / 2)
       };
-
-      console.log(`✅ Resultado para ${agent.name}:`, result);
-      return result;
     }) || [];
 
     // Formatear para el chart de manera dinámica
@@ -515,56 +659,22 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
       outboundFailureRate: outboundCalls > 0 ? Math.round((calls?.filter(call => call.status === 'failed' && call.tipo_de_llamada === 'outbound').length || 0) / outboundCalls * 100) : 0
     };
 
-    // Calcular métricas de costo
-    const calcularCostoLlamada = (durationStr: string | null): number => {
-      const durationSeconds = parseDuration(durationStr);
-      const durationMinutes = durationSeconds / 60;
-      return 0.0016 + (durationMinutes * 0.016);
-    };
+    // ✅ NUEVO: Calcular costos con sistema por país
+    const costMetrics = calcularCostosConSistemaPais(calls || []);
 
-    const totalCosto = calls?.reduce((sum, call) => sum + calcularCostoLlamada(call.duration), 0) || 0;
-    const costoPromedioPorLlamada = totalCalls > 0 ? totalCosto / totalCalls : 0;
-    const costoPorMinuto = 0.016;
-
-    // Costo por tipo de llamada
-    const costoPorTipo = {
-      inbound: calls?.filter(call => call.tipo_de_llamada === 'inbound')
-                    .reduce((sum, call) => sum + calcularCostoLlamada(call.duration), 0) || 0,
-      outbound: calls?.filter(call => call.tipo_de_llamada === 'outbound')
-                     .reduce((sum, call) => sum + calcularCostoLlamada(call.duration), 0) || 0
-    };
-
-    // Costo por agente
-    const costoPorAgente = agents.map(agent => {
-      const agentCalls = calls?.filter(call => call.api === agent.id) || [];
-      const costoAgente = agentCalls.reduce((sum, call) => sum + calcularCostoLlamada(call.duration), 0);
+    // Reemplazar nombres de agentes en costoPorAgente
+    costMetrics.costoPorAgente = costMetrics.costoPorAgente.map(agenteCosto => {
+      const agent = agents?.find(a => a.id === agenteCosto.agente);
       return {
-        agente: agent.name,
-        costo: parseFloat(costoAgente.toFixed(6)),
-        llamadas: agentCalls.length,
-        costoPromedio: agentCalls.length > 0 ? parseFloat((costoAgente / agentCalls.length).toFixed(6)) : 0
-      };
-    });
-
-    // Costo por día de la semana
-    const costoPorDia = weekDays.map(day => {
-      const dayCalls = calls?.filter(call => {
-        if (!call.started_at) return false;
-        return new Date(call.started_at).getDay() === day.id;
-      }) || [];
-
-      const costoDia = dayCalls.reduce((sum, call) => sum + calcularCostoLlamada(call.duration), 0);
-      
-      return {
-        name: day.name,
-        costo: parseFloat(costoDia.toFixed(6))
+        ...agenteCosto,
+        agente: agent?.name || `Agente ${agenteCosto.agente}`
       };
     });
 
     // Calcular métricas de desconexión
     const disconnectReasonCounts: Record<string, number> = {};
 
-    calls?.forEach((call: any) => {
+    calls?.forEach((call: Call) => {
       if (call.disconnect_reason) {
         disconnectReasonCounts[call.disconnect_reason] = (disconnectReasonCounts[call.disconnect_reason] || 0) + 1;
       }
@@ -596,34 +706,35 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
       reasons: disconnectReasons
     };
 
-    return {
-      pickupRate,
-      successRate,
-      transferRate,
-      voicemailRate,
-      sentimentTrend,
-      averageDuration: averageDurationFormatted,
-      totalCalls,
-      totalInbound: inboundCalls,
-      totalOutbound: outboundCalls,
-      callVolume,
-      callDuration,
-      latency,
-      inboundOutbound,
-      sentiment,
-      agentPerformance,
-      failedMetrics,
-      costMetrics: {
-        totalCosto: parseFloat(totalCosto.toFixed(6)),
-        costoPromedioPorLlamada: parseFloat(costoPromedioPorLlamada.toFixed(6)),
-        costoPorMinuto: parseFloat(costoPorMinuto.toFixed(6)),
-        costoPorTipo,
-        costoPorAgente,
-        costoPorDia
-      },
-      disconnectMetrics,
-      successByHour
-    };
+return {
+  pickupRate,
+  successRate,
+  transferRate,
+  voicemailRate,
+  sentimentTrend,
+  averageDuration: averageDurationFormatted,
+  totalCalls,
+  totalInbound: inboundCalls,
+  totalOutbound: outboundCalls,
+  callVolume,
+  callDuration,
+  latency,
+  inboundOutbound,
+  sentiment,
+  agentPerformance,
+  failedMetrics,
+  costMetrics: {
+    ...costMetrics,
+    desgloseCostos: {
+      ...costMetrics.desgloseCostos,
+      porcentajeRetell: costMetrics.totalCosto > 0 
+        ? parseFloat(((costMetrics.desgloseCostos.totalRetell / costMetrics.totalCosto) * 100).toFixed(2))
+        : 0
+    }
+  },
+  disconnectMetrics,
+  successByHour
+};
 
   } catch (error) {
     console.error('Error fetching data from Supabase:', error);
@@ -631,75 +742,68 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
     const weekDays = getWeekDays();
     const emptyDayData = weekDays.map(day => ({ name: day.name, calls: 0 }));
     
-    return {
-      pickupRate: 0,
-      successRate: 0,
-      transferRate: 0,
-      averageDuration: 0,
-      totalCalls: 0,
-      totalInbound: 0,
-      totalOutbound: 0,
-      voicemailRate: 0,
-      sentimentTrend: weekDays.map(day => ({  // ✅ AGREGAR ESTO
-        name: day.name,
-        positivo: 0,
-        neutral: 0,
-        negativo: 0
-      })),
-      callVolume: emptyDayData,
-      callDuration: emptyDayData.map(d => ({ name: d.name, duration: 0 })),
-      latency: emptyDayData.map(d => ({ name: d.name, latency: 0 })),
-      inboundOutbound: emptyDayData.map(d => ({ name: d.name, entrantes: 0, salientes: 0 })),
-      sentiment: [
-        { name: 'Positivo', value: 0, color: 'hsl(var(--success))' },
-        { name: 'Neutral', value: 0, color: 'hsl(var(--warning))' },
-        { name: 'Negativo', value: 0, color: 'hsl(var(--danger))' }
-      ],
-      agentPerformance: [],
-      failedMetrics: {
-        totalFailed: 0,
-        failedInbound: 0,
-        failedOutbound: 0,
-        failureRate: 0,
-        inboundFailureRate: 0,
-        outboundFailureRate: 0
-      },
-      costMetrics: {
-        totalCosto: 0,
-        costoPromedioPorLlamada: 0,
-        costoPorMinuto: 0.016,
-        costoPorTipo: {
-          inbound: 0,
-          outbound: 0
-        },
-        costoPorAgente: [],
-        costoPorDia: weekDays.map(day => ({ name: day.name, costo: 0 }))
-      },
-      disconnectMetrics: {
-        totalCalls: 0,
-        byCategory: {
-          ended: 0,
-          not_connected: 0,
-          error: 0
-        },
-        reasons: []
-      },
-      successByHour: []
-    };
+return {
+  pickupRate: 0,
+  successRate: 0,
+  transferRate: 0,
+  averageDuration: 0,
+  totalCalls: 0,
+  totalInbound: 0,
+  totalOutbound: 0,
+  voicemailRate: 0,
+  sentimentTrend: weekDays.map(day => ({
+    name: day.name,
+    positivo: 0,
+    neutral: 0,
+    negativo: 0
+  })),
+  callVolume: emptyDayData,
+  callDuration: emptyDayData.map(d => ({ name: d.name, duration: 0 })),
+  latency: emptyDayData.map(d => ({ name: d.name, latency: 0 })),
+  inboundOutbound: emptyDayData.map(d => ({ name: d.name, entrantes: 0, salientes: 0 })),
+  sentiment: [
+    { name: 'Positivo', value: 0, color: 'hsl(var(--success))' },
+    { name: 'Neutral', value: 0, color: 'hsl(var(--warning))' },
+    { name: 'Negativo', value: 0, color: 'hsl(var(--danger))' }
+  ],
+  agentPerformance: [],
+  failedMetrics: {
+    totalFailed: 0,
+    failedInbound: 0,
+    failedOutbound: 0,
+    failureRate: 0,
+    inboundFailureRate: 0,
+    outboundFailureRate: 0
+  },
+  costMetrics: {
+    totalCosto: 0,
+    costoPromedioPorLlamada: 0,
+    costoPorMinuto: 0,
+    costoPorTipo: {
+      inbound: 0,
+      outbound: 0
+    },
+    costoPorAgente: [],
+    costoPorDia: weekDays.map(day => ({ name: day.name, costo: 0 })),
+    costoPorPais: [],
+    desgloseCostos: {
+      totalRetell: 0,
+      totalLlamadas: 0,
+      porcentajeRetell: 0 // ← PROPIDAD AÑADIDA
+    }
+  },
+  disconnectMetrics: {
+    totalCalls: 0,
+    byCategory: {
+      ended: 0,
+      not_connected: 0,
+      error: 0
+    },
+    reasons: []
+  },
+  successByHour: []
+};
   }
-}
-
-export interface Agent {
-  id: string;
-  name: string;
-}
-
-export interface DashboardFilters {
-  agent: string;
-  timeRange: string;
-  callType: string;
-  status: string;
-  channel: string;
 }
 
 export const useDashboardData = () => {
@@ -712,8 +816,8 @@ export const useDashboardData = () => {
     callType: 'all',
     status: 'all',
     channel: 'all',
+    country: 'all'
   });
-
   const fetchAgents = async () => {
     try {
       const { data: agentsData, error } = await supabase

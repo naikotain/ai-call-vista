@@ -49,14 +49,17 @@ export const SuccessByHourChart = () => {
             label={{ value: 'Tasa (%)', angle: -90, position: 'insideLeft' }}
           />
           <Tooltip 
-            contentStyle={{ 
-              backgroundColor: 'hsl(var(--card))',
-              border: '1px solid hsl(var(--border))',
-              borderRadius: '8px',
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+            formatter={(value: number, name: string) => {
+              if (name === 'successRate') return [`${value}%`, 'Tasa de éxito'];
+              return [value, name === 'successfulCalls' ? 'Llamadas exitosas' : 'Total llamadas'];
             }}
-            formatter={(value: number) => [`${value}%`, 'Tasa de éxito']}
-            labelFormatter={(label) => `Hora: ${label}:00`}
+            labelFormatter={(label, payload) => {
+              if (payload && payload[0]) {
+                const data = payload[0].payload;
+                return `Hora: ${label} (${data.successfulCalls}/${data.totalCalls} exitosas)`;
+              }
+              return `Hora: ${label}`;
+            }}
           />
           <Area
             type="monotone"
