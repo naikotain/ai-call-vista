@@ -9,6 +9,7 @@ interface CallDurationChartProps {
 }
 
 export const CallDurationChart = ({ data }: CallDurationChartProps) => {
+  console.log('📊 Datos recibidos en CallDurationChart:', data);
   return (
     <div className="h-80 w-full">
       <ResponsiveContainer width="100%" height="100%">

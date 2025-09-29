@@ -83,16 +83,26 @@ export const CallsTable = () => {
   
   return (minutes * 60) + seconds;
 };
-  const calculateCallCost = (retellCost: number, duration: string, countryCode: string): number => {
-  const minutos = parseDuration(duration) / 60;
+// Función para calcular costo de llamada por país
+const calculateCallCostByCountry = (duration: string, countryCode: string): number => {
+  const seconds = parseDuration(duration);
+  const minutes = seconds / 60;
+  
   const COUNTRY_COSTS = {
-    'CL': 0.04,
-    'AR': 0.0019, 
-    'MX': 0.02,
-    'ES': 0.91
+    'CL': 0.04,     // Chile
+    'AR': 0.0019,   // Argentina  
+    'MX': 0.02,     // México
+    'ES': 0.91      // España
   };
-  const costoPorMinuto = COUNTRY_COSTS[countryCode as keyof typeof COUNTRY_COSTS] || 0.04;
-  return retellCost + (minutos * costoPorMinuto);
+  
+  const costPerMinute = COUNTRY_COSTS[countryCode as keyof typeof COUNTRY_COSTS] || 0.04;
+  return minutes * costPerMinute;
+};
+
+// Función para calcular costo total
+const calculateTotalCost = (retellCost: number, duration: string, countryCode: string): number => {
+  const callCost = calculateCallCostByCountry(duration, countryCode);
+  return (retellCost || 0) + callCost;
 };
 
   // Función para formatear fecha
@@ -230,29 +240,21 @@ export const CallsTable = () => {
               <TableBody>
                 {filteredCalls.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground"> {/* Cambia de 8 a 12 */}
+                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                       No se encontraron llamadas
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredCalls.map((call) => (
-                    <TableRow key={call.id}>
-                      <TableCell className="font-medium">
+                    <TableRow key={call.id}><TableCell className="font-medium">
                         {formatDate(call.started_at)}
-                      </TableCell>
-                      <TableCell>
+                      </TableCell><TableCell>
                         {call.agents?.name || 'N/A'}
-                      </TableCell>
-                      <TableCell>{call.customer_phone}</TableCell>
-                      <TableCell>{getTypeBadge(call.tipo_de_llamada)}</TableCell>
-                      <TableCell>{getStatusBadge(call.status)}</TableCell>
-                      <TableCell>{formatDuration(call.duration)}</TableCell>
-                      <TableCell>
+                      </TableCell><TableCell>{call.customer_phone}</TableCell><TableCell>{getTypeBadge(call.tipo_de_llamada)}</TableCell><TableCell>{getStatusBadge(call.status)}</TableCell><TableCell>{formatDuration(call.duration)}</TableCell><TableCell>
                         <Badge variant="outline">
                           {call.channel || 'Voz'}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
+                      </TableCell><TableCell>
                         {call.sentiment ? (
                           <Badge variant={
                             call.sentiment === 'positive' ? 'default' :
@@ -264,10 +266,7 @@ export const CallsTable = () => {
                         ) : (
                           'N/A'
                         )}
-                      </TableCell>
-                      
-                      {/* ✅ AÑADIR ESTAS NUEVAS CELDAS DE COSTOS */}
-                      <TableCell>
+                      </TableCell><TableCell>
                         {call.country_code ? (
                           <Badge variant="outline">
                             {call.country_code === 'CL' ? '🇨🇱 Chile' :
@@ -279,23 +278,16 @@ export const CallsTable = () => {
                         ) : (
                           'N/A'
                         )}
-                      </TableCell>
-                      
-                      <TableCell className="text-right">
+                      </TableCell><TableCell className="text-right">
                         ${(call.retell_cost || 0).toFixed(4)}
-                      </TableCell>
-                      
-                      <TableCell className="text-right">
-                        ${((call.costo || 0) - (call.retell_cost || 0)).toFixed(4)}
-                      </TableCell>
-                      
-                      <TableCell className="text-right font-medium">
-                        ${(call.costo || 0).toFixed(4)}
-                      </TableCell>
-                    </TableRow>
+                      </TableCell><TableCell className="text-right">
+                        ${calculateCallCostByCountry(call.duration || '', call.country_code || 'CL').toFixed(4)}
+                      </TableCell><TableCell className="text-right font-medium">
+                        ${calculateTotalCost(call.retell_cost || 0, call.duration || '', call.country_code || 'CL').toFixed(4)}
+                      </TableCell></TableRow>
                   ))
                 )}
-              </TableBody>
+            </TableBody>
             </Table>
           </div>
         </CardContent>
