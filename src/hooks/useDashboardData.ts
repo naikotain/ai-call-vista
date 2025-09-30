@@ -219,6 +219,434 @@ const calculateSuccessByHour = (calls: Call[]): Array<{
     .sort((a, b) => parseInt(a.hour) - parseInt(b.hour));
 };
 
+// ✅ NUEVAS FUNCIONES DE AGRUPAMIENTO SEGÚN FILTRO
+const getCallVolumeData = (calls: Call[], timeRange: string) => {
+  switch (timeRange) {
+    case 'today':
+      return getCallVolumeByHour(calls);
+    case 'week':
+      return getCallVolumeByDayOfWeek(calls);
+    case 'month':
+      return getCallVolumeByDayOfMonth(calls);
+    case 'all':
+      return getCallVolumeByDayOfWeekAllTime(calls);
+    default:
+      return getCallVolumeByDayOfWeekAllTime(calls);
+  }
+};
+
+const getCallVolumeByDayOfWeekAllTime = (calls: Call[]) => {
+  const weekDays = getWeekDays();
+  return weekDays.map(day => ({
+    name: day.name,
+    calls: calls?.filter(call => {
+      if (!call.started_at) return false;
+      return new Date(call.started_at).getDay() === day.id;
+    }).length || 0
+  }));
+};
+
+// Agrupar por hora (para "hoy")
+const getCallVolumeByHour = (calls: Call[]) => {
+  const hoursData: Array<{ name: string; calls: number }> = [];
+  
+  for (let hour = 0; hour < 24; hour++) {
+    const hourCalls = calls?.filter(call => {
+      if (!call.started_at) return false;
+      const callDate = new Date(call.started_at);
+      // ✅ QUITAR restricción de fecha actual
+      return callDate.getHours() === hour;
+    }).length || 0;
+    
+    hoursData.push({
+      name: `${hour.toString().padStart(2, '0')}:00`,
+      calls: hourCalls
+    });
+  }
+  
+  return hoursData;
+};
+
+// Agrupar por día de semana (para "esta semana")
+const getCallVolumeByDayOfWeek = (calls: Call[]) => {
+  const weekDays = getWeekDays();
+  return weekDays.map(day => ({
+    name: day.name,
+    calls: calls?.filter(call => {
+      if (!call.started_at) return false;
+      // ✅ SOLO filtrar por día de semana, SIN fecha actual
+      return new Date(call.started_at).getDay() === day.id;
+    }).length || 0
+  }));
+};
+// Agrupar por día del mes (para "este mes")
+const getCallVolumeByDayOfMonth = (calls: Call[]) => {
+  const volumeData: Array<{ name: string; calls: number }> = [];
+  
+  // Agrupar por día del mes (1-31) sin importar el mes
+  for (let day = 1; day <= 31; day++) {
+    const dayCalls = calls?.filter(call => {
+      if (!call.started_at) return false;
+      const callDate = new Date(call.started_at);
+      return callDate.getDate() === day;
+    }).length || 0;
+    
+    if (dayCalls > 0) {
+      volumeData.push({ name: day.toString(), calls: dayCalls });
+    }
+  }
+  
+  return volumeData;
+};
+
+// ✅ FUNCIONES PARA CALL DURATION
+const getCallDurationData = (calls: Call[], timeRange: string) => {
+  switch (timeRange) {
+    case 'today':
+      return getCallDurationByHour(calls);
+    case 'week':
+      return getCallDurationByDayOfWeek(calls);
+    case 'month':
+      return getCallDurationByDayOfMonth(calls);
+    case 'all':
+      return getCallDurationByDayOfWeekAllTime(calls);
+    default:
+      return getCallDurationByDayOfWeekAllTime(calls);
+  }
+};
+
+const getCallDurationByDayOfWeekAllTime = (calls: Call[]) => {
+  const weekDays = getWeekDays();
+  return weekDays.map(day => {
+    const dayCalls = calls?.filter(call => {
+      if (!call.started_at || !call.duration) return false;
+      return new Date(call.started_at).getDay() === day.id;
+    }) || [];
+
+    const totalMinutes = dayCalls.reduce((sum, call) => {
+      const seconds = parseDuration(call.duration);
+      return sum + (seconds / 60);
+    }, 0);
+
+    const avgDurationMinutes = dayCalls.length > 0 
+      ? totalMinutes / dayCalls.length
+      : 0;
+
+    return {
+      name: day.name,
+      duration: Math.round(avgDurationMinutes * 10) / 10
+    };
+  });
+};
+
+const getCallDurationByHour = (calls: Call[]) => {
+  const durationData: Array<{ name: string; duration: number }> = [];
+  
+  for (let hour = 0; hour < 24; hour++) {
+    const hourCalls = calls?.filter(call => {
+      if (!call.started_at || !call.duration) return false;
+      const callDate = new Date(call.started_at);
+      const today = new Date();
+      return callDate.getHours() === hour && 
+             callDate.getDate() === today.getDate() &&
+             callDate.getMonth() === today.getMonth() &&
+             callDate.getFullYear() === today.getFullYear();
+    }) || [];
+
+    const totalMinutes = hourCalls.reduce((sum, call) => {
+      const seconds = parseDuration(call.duration);
+      return sum + (seconds / 60);
+    }, 0);
+
+    const avgDurationMinutes = hourCalls.length > 0 
+      ? totalMinutes / hourCalls.length
+      : 0;
+
+    durationData.push({
+      name: `${hour.toString().padStart(2, '0')}:00`,
+      duration: Math.round(avgDurationMinutes * 10) / 10
+    });
+  }
+  
+  return durationData;
+};
+
+const getCallDurationByDayOfWeek = (calls: Call[]) => {
+  const weekDays = getWeekDays();
+  return weekDays.map(day => {
+    const dayCalls = calls?.filter(call => {
+      if (!call.started_at || !call.duration) return false;
+      // ✅ SOLO filtrar por día de semana
+      return new Date(call.started_at).getDay() === day.id;
+    }) || [];
+
+    const totalMinutes = dayCalls.reduce((sum, call) => {
+      const seconds = parseDuration(call.duration);
+      return sum + (seconds / 60);
+    }, 0);
+
+    const avgDurationMinutes = dayCalls.length > 0 
+      ? totalMinutes / dayCalls.length
+      : 0;
+
+    return {
+      name: day.name,
+      duration: Math.round(avgDurationMinutes * 10) / 10
+    };
+  });
+};
+
+
+const getCallDurationByDayOfMonth = (calls: Call[]) => {
+  const durationData: Array<{ name: string; duration: number }> = [];
+  const today = new Date();
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dayCalls = calls?.filter(call => {
+      if (!call.started_at || !call.duration) return false;
+      const callDate = new Date(call.started_at);
+      return callDate.getDate() === day && 
+             callDate.getMonth() === today.getMonth() && 
+             callDate.getFullYear() === today.getFullYear();
+    }) || [];
+
+    const totalMinutes = dayCalls.reduce((sum, call) => {
+      const seconds = parseDuration(call.duration);
+      return sum + (seconds / 60);
+    }, 0);
+
+    const avgDurationMinutes = dayCalls.length > 0 
+      ? totalMinutes / dayCalls.length
+      : 0;
+
+    durationData.push({
+      name: day.toString(),
+      duration: Math.round(avgDurationMinutes * 10) / 10
+    });
+  }
+  
+  return durationData;
+};
+
+// ✅ FUNCIONES PARA LATENCY
+const getLatencyData = (calls: Call[], timeRange: string) => {
+  switch (timeRange) {
+    case 'today':
+      return getLatencyByHour(calls);
+    case 'week':
+      return getLatencyByDayOfWeek(calls);
+    case 'month':
+      return getLatencyByDayOfMonth(calls);
+    case 'all':
+      return getLatencyByDayOfWeekAllTime(calls);
+    default:
+      return getLatencyByDayOfWeekAllTime(calls);
+  }
+};
+
+const getLatencyByDayOfWeekAllTime = (calls: Call[]) => {
+  const weekDays = getWeekDays();
+  return weekDays.map(day => {
+    const dayCalls = calls?.filter(call => {
+      if (!call.started_at || !call.latency) return false;
+      return new Date(call.started_at).getDay() === day.id;
+    }) || [];
+
+    const avgLatency = dayCalls.length > 0 
+      ? dayCalls.reduce((sum, call) => sum + (call.latency || 0), 0) / dayCalls.length / 1000
+      : 0;
+
+    return {
+      name: day.name,
+      latency: Math.round(avgLatency * 10) / 10
+    };
+  });
+};
+
+const getLatencyByHour = (calls: Call[]) => {
+  const latencyData: Array<{ name: string; latency: number }> = [];
+  
+  for (let hour = 0; hour < 24; hour++) {
+    const hourCalls = calls?.filter(call => {
+      if (!call.started_at || !call.latency) return false;
+      const callDate = new Date(call.started_at);
+      const today = new Date();
+      return callDate.getHours() === hour && 
+             callDate.getDate() === today.getDate() &&
+             callDate.getMonth() === today.getMonth() &&
+             callDate.getFullYear() === today.getFullYear();
+    }) || [];
+
+    const avgLatency = hourCalls.length > 0 
+      ? hourCalls.reduce((sum, call) => sum + (call.latency || 0), 0) / hourCalls.length / 1000
+      : 0;
+
+    latencyData.push({
+      name: `${hour.toString().padStart(2, '0')}:00`,
+      latency: Math.round(avgLatency * 10) / 10
+    });
+  }
+  
+  return latencyData;
+};
+
+const getLatencyByDayOfWeek = (calls: Call[]) => {
+  const weekDays = getWeekDays();
+  return weekDays.map(day => {
+    const dayCalls = calls?.filter(call => {
+      if (!call.started_at || !call.latency) return false;
+      // ✅ SOLO filtrar por día de semana
+      return new Date(call.started_at).getDay() === day.id;
+    }) || [];
+
+    const avgLatency = dayCalls.length > 0 
+      ? dayCalls.reduce((sum, call) => sum + (call.latency || 0), 0) / dayCalls.length / 1000
+      : 0;
+
+    return {
+      name: day.name,
+      latency: Math.round(avgLatency * 10) / 10
+    };
+  });
+};
+
+const getLatencyByDayOfMonth = (calls: Call[]) => {
+  const latencyData: Array<{ name: string; latency: number }> = [];
+  const today = new Date();
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dayCalls = calls?.filter(call => {
+      if (!call.started_at || !call.latency) return false;
+      const callDate = new Date(call.started_at);
+      return callDate.getDate() === day && 
+             callDate.getMonth() === today.getMonth() && 
+             callDate.getFullYear() === today.getFullYear();
+    }) || [];
+
+    const avgLatency = dayCalls.length > 0 
+      ? dayCalls.reduce((sum, call) => sum + (call.latency || 0), 0) / dayCalls.length / 1000
+      : 0;
+
+    latencyData.push({
+      name: day.toString(),
+      latency: Math.round(avgLatency * 10) / 10
+    });
+  }
+  
+  return latencyData;
+};
+
+// ✅ FUNCIONES PARA INBOUND/OUTBOUND
+const getInboundOutboundData = (calls: Call[], timeRange: string) => {
+  switch (timeRange) {
+    case 'today':
+      return getInboundOutboundByHour(calls);
+    case 'week':
+      return getInboundOutboundByDayOfWeek(calls);
+    case 'month':
+      return getInboundOutboundByDayOfMonth(calls);
+    case 'all':
+      return getInboundOutboundByDayOfWeekAllTime(calls);
+    default:
+      return getInboundOutboundByDayOfWeekAllTime(calls);
+  }
+};
+
+const getInboundOutboundByDayOfWeekAllTime = (calls: Call[]) => {
+  const weekDays = getWeekDays();
+  return weekDays.map(day => {
+    const dayCalls = calls?.filter(call => {
+      if (!call.started_at) return false;
+      return new Date(call.started_at).getDay() === day.id;
+    }) || [];
+
+    const entrantes = dayCalls.filter(call => call.tipo_de_llamada === 'inbound').length;
+    const salientes = dayCalls.filter(call => call.tipo_de_llamada === 'outbound').length;
+
+    return {
+      name: day.name,
+      entrantes,
+      salientes
+    };
+  });
+};
+
+const getInboundOutboundByHour = (calls: Call[]) => {
+  const inboundOutboundData: Array<{ name: string; entrantes: number; salientes: number }> = [];
+  
+  for (let hour = 0; hour < 24; hour++) {
+    const hourCalls = calls?.filter(call => {
+      if (!call.started_at) return false;
+      const callDate = new Date(call.started_at);
+      const today = new Date();
+      return callDate.getHours() === hour && 
+             callDate.getDate() === today.getDate() &&
+             callDate.getMonth() === today.getMonth() &&
+             callDate.getFullYear() === today.getFullYear();
+    }) || [];
+
+    const entrantes = hourCalls.filter(call => call.tipo_de_llamada === 'inbound').length;
+    const salientes = hourCalls.filter(call => call.tipo_de_llamada === 'outbound').length;
+
+    inboundOutboundData.push({
+      name: `${hour.toString().padStart(2, '0')}:00`,
+      entrantes,
+      salientes
+    });
+  }
+  
+  return inboundOutboundData;
+};
+
+const getInboundOutboundByDayOfWeek = (calls: Call[]) => {
+  const weekDays = getWeekDays();
+  return weekDays.map(day => {
+    const dayCalls = calls?.filter(call => {
+      if (!call.started_at) return false;
+      // ✅ SOLO filtrar por día de semana
+      return new Date(call.started_at).getDay() === day.id;
+    }) || [];
+
+    const entrantes = dayCalls.filter(call => call.tipo_de_llamada === 'inbound').length;
+    const salientes = dayCalls.filter(call => call.tipo_de_llamada === 'outbound').length;
+
+    return {
+      name: day.name,
+      entrantes,
+      salientes
+    };
+  });
+};
+
+const getInboundOutboundByDayOfMonth = (calls: Call[]) => {
+  const inboundOutboundData: Array<{ name: string; entrantes: number; salientes: number }> = [];
+  const today = new Date();
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dayCalls = calls?.filter(call => {
+      if (!call.started_at) return false;
+      const callDate = new Date(call.started_at);
+      return callDate.getDate() === day && 
+             callDate.getMonth() === today.getMonth() && 
+             callDate.getFullYear() === today.getFullYear();
+    }) || [];
+
+    const entrantes = dayCalls.filter(call => call.tipo_de_llamada === 'inbound').length;
+    const salientes = dayCalls.filter(call => call.tipo_de_llamada === 'outbound').length;
+
+    inboundOutboundData.push({
+      name: day.toString(),
+      entrantes,
+      salientes
+    });
+  }
+  
+  return inboundOutboundData;
+};
+
 // NUEVA FUNCIÓN: Calcular costos con sistema por país
 const calcularCostosConSistemaPais = (calls: Call[]) => {
   let totalCosto = 0;
@@ -457,71 +885,20 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
     console.log('Successful calls:', successfulCalls);
     console.log('Success rate:', successRate + '%');
 
-    // Get week days for charts
-    const weekDays = getWeekDays();
-    
-    // 1. Volumen de llamadas por día
-    const callVolume = weekDays.map(day => ({
-      name: day.name,
-      calls: calls?.filter(call => {
-        if (!call.started_at) return false;
-        return new Date(call.started_at).getDay() === day.id;
-      }).length || 0
-    }));
+    // ✅ USAR NUEVAS FUNCIONES DE AGRUPAMIENTO
+    // 1. Volumen de llamadas por período
+    const callVolume = getCallVolumeData(calls || [], filters.timeRange);
 
-    // 2. Duración promedio por día (EN MINUTOS)
-    const callDuration = weekDays.map(day => {
-      const dayCalls = calls?.filter(call => {
-        if (!call.started_at || !call.duration) return false;
-        return new Date(call.started_at).getDay() === day.id;
-      }) || [];
+    // 2. Duración promedio por período
+    const callDuration = getCallDurationData(calls || [], filters.timeRange);
 
-      const totalMinutes = dayCalls.reduce((sum, call) => {
-        const seconds = parseDuration(call.duration);
-        return sum + (seconds / 60);
-      }, 0);
+    // 3. Latencia promedio por período
+    const latency = getLatencyData(calls || [], filters.timeRange);
 
-      const avgDurationMinutes = dayCalls.length > 0 
-        ? totalMinutes / dayCalls.length
-        : 0;
+    // 4. Llamadas entrantes vs salientes por período
+    const inboundOutbound = getInboundOutboundData(calls || [], filters.timeRange);
 
-      return {
-        name: day.name,
-        duration: Math.round(avgDurationMinutes * 10) / 10
-      };
-    });
-
-    // 3. Latencia promedio por día
-    const latency = weekDays.map(day => {
-      const dayCalls = calls?.filter(call => {
-        if (!call.started_at || !call.latency) return false;
-        return new Date(call.started_at).getDay() === day.id;
-      }) || [];
-
-      const avgLatency = dayCalls.length > 0 
-        ? dayCalls.reduce((sum, call) => sum + (call.latency || 0), 0) / dayCalls.length / 1000
-        : 0;
-
-      return {
-        name: day.name,
-        latency: Math.round(avgLatency * 10) / 10
-      };
-    });
-
-    // 4. Llamadas entrantes vs salientes por día
-    const inboundOutbound = weekDays.map(day => ({
-      name: day.name,
-      entrantes: calls?.filter(call => {
-        if (!call.started_at) return false;
-        return new Date(call.started_at).getDay() === day.id && call.tipo_de_llamada === 'inbound';
-      }).length || 0,
-      salientes: calls?.filter(call => {
-        if (!call.started_at) return false;
-        return new Date(call.started_at).getDay() === day.id && call.tipo_de_llamada === 'outbound';
-      }).length || 0
-    }));
-
-    // 5. Tasa de éxito por hora
+    // 5. Tasa de éxito por hora (se mantiene igual)
     const successByHour = calculateSuccessByHour(calls || []);
 
     // Calculate sentiment distribution
@@ -551,6 +928,8 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
       }
     ];
 
+    // Sentiment trend por día de semana (se mantiene igual por ahora)
+    const weekDays = getWeekDays();
     const sentimentTrend = weekDays.map(day => {
       const dayCalls = calls?.filter(call => {
         if (!call.started_at) return false;
@@ -789,7 +1168,7 @@ return {
     desgloseCostos: {
       totalRetell: 0,
       totalLlamadas: 0,
-      porcentajeRetell: 0 // ← PROPIDAD AÑADIDA
+      porcentajeRetell: 0
     }
   },
   disconnectMetrics: {
