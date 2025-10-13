@@ -269,7 +269,16 @@ const getCallVolumeByHour = (calls: Call[]) => {
 
 // Agrupar por día de semana (para "esta semana")
 const getCallVolumeByDayOfWeek = (calls: Call[]) => {
+  // En getCallVolumeByDayOfWeek, agrega:
+console.log('🔍 getCallVolumeByDayOfWeek debug:', {
+  totalCalls: calls?.length,
+  filteredCalls: calls?.filter(call => call.started_at).length,
+  sampleDates: calls?.slice(0, 3).map(c => c.started_at)
+});
+  
   const weekDays = getWeekDays();
+
+  
   return weekDays.map(day => ({
     name: day.name,
     calls: calls?.filter(call => {
@@ -278,6 +287,7 @@ const getCallVolumeByDayOfWeek = (calls: Call[]) => {
       return new Date(call.started_at).getDay() === day.id;
     }).length || 0
   }));
+  
 };
 // Agrupar por día del mes (para "este mes")
 const getCallVolumeByDayOfMonth = (calls: Call[]) => {
@@ -663,7 +673,8 @@ const calcularCostosConSistemaPais = (calls: Call[]) => {
 
   calls.forEach(call => {
     // Usar country_code o default a Chile para datos antiguos
-    const countryCode = call.country_code || 'CL';
+    const rawCountryCode = call.country_code || 'CL';
+    const countryCode = rawCountryCode.trim().toUpperCase();
     const retellCost = call.retell_cost || 0;
     
     // Calcular costo usando el nuevo sistema
@@ -737,7 +748,17 @@ const calcularCostosConSistemaPais = (calls: Call[]) => {
       porcentaje: parseFloat(porcentaje.toFixed(2)),
       bandera: country.flag
     };
+    
   });
+console.log('=== DEBUG BANDERAS - VERIFICANDO ESPACIOS ===');
+calls?.slice(0, 5).forEach(call => {
+  const raw = call.country_code || 'CL';
+  console.log(`Raw: "${raw}" | Length: ${raw.length} | Trimmed: "${raw.trim()}"`);
+});
+
+costoPorPaisFormateado.forEach(pais => {
+  console.log(`País: ${pais.pais}, Código: "${pais.codigo}" | Bandera: ${pais.bandera}`);
+});
 
   // Formatear costo por agente
   const costoPorAgenteFormateado = Object.entries(costoPorAgente).map(([agentId, data]) => ({
@@ -779,6 +800,7 @@ const calcularCostosConSistemaPais = (calls: Call[]) => {
 export interface Agent {
   id: string;
   name: string;
+  email?: string | null;  // ✅ Hacer email opcional
 }
 
 export interface DashboardFilters {
@@ -966,7 +988,7 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
 
       if (totalCalls === 0) {
         return {
-          agentName: agent.name,
+          agentName: agent.name || `Agente ${agent.id.slice(0, 8)}`,
           successRate: 0,
           transferRate: 0,
           avgDuration: 0,
@@ -1046,7 +1068,7 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
       const agent = agents?.find(a => a.id === agenteCosto.agente);
       return {
         ...agenteCosto,
-        agente: agent?.name || `Agente ${agenteCosto.agente}`
+        agente: agent?.name || `Agente ${agenteCosto.agente.slice(0, 8)}`
       };
     });
 
@@ -1201,7 +1223,7 @@ export const useDashboardData = () => {
     try {
       const { data: agentsData, error } = await supabase
         .from('agents')
-        .select('id, name')
+        .select('id, name, email')
         .order('name');
       
       if (error) {

@@ -4,7 +4,7 @@ export interface CountryCost {
   name: string;
   costPerMinute: number;
   currency: string;
-  flag?: string;
+  flag: string;
 }
 
 export const COUNTRY_COSTS: Record<string, CountryCost> = {
@@ -15,7 +15,7 @@ export const COUNTRY_COSTS: Record<string, CountryCost> = {
     currency: 'USD',
     flag: '🇨🇱'
   },
-  'AR': {
+  'ARG': {
     code: 'AR',
     name: 'Argentina',
     costPerMinute: 0.0019,
@@ -29,7 +29,7 @@ export const COUNTRY_COSTS: Record<string, CountryCost> = {
     currency: 'USD',
     flag: '🇲🇽'
   },
-  'ES': {
+  'ESP': {
     code: 'ES',
     name: 'España',
     costPerMinute: 0.91,
@@ -40,7 +40,19 @@ export const COUNTRY_COSTS: Record<string, CountryCost> = {
 
 // Función para obtener costo por país con fallback seguro
 export const getCountryCost = (countryCode: string): CountryCost => {
-  return COUNTRY_COSTS[countryCode] || COUNTRY_COSTS['CL']; // Default Chile
+  const normalizedCode = countryCode.trim().toUpperCase();
+  const country = COUNTRY_COSTS[normalizedCode];
+  
+  if (!country) {
+    return {
+      code: normalizedCode,
+      name: `País ${normalizedCode}`,
+      costPerMinute: 0.05,
+      currency: 'USD',
+      flag: '🏳️'
+    };
+  }
+  return country;
 };
 
 // Función para calcular costo total escalable

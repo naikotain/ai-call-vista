@@ -178,10 +178,7 @@ export const DashboardTabs = ({ data, loading }: DashboardTabsProps) => {
                         {data.costMetrics.costoPorPais.slice(0, 4).map((pais, index) => (
                           <div key={index} className="text-center p-3 bg-blue-50 rounded-lg">
                             <div className="text-lg font-semibold">
-                              {pais.pais === 'CL' ? '🇨🇱' : 
-                               pais.pais === 'AR' ? '🇦🇷' : 
-                               pais.pais === 'MX' ? '🇲🇽' : 
-                               pais.pais === 'ES' ? '🇪🇸' : '🌍'}
+                              {pais.bandera || '🌍'}  {/* ← BANDERA DINÁMICA */}
                             </div>
                             <div className="text-sm font-bold">${pais.costo.toFixed(2)}</div>
                             <div className="text-xs text-muted-foreground">
@@ -321,10 +318,7 @@ export const DashboardTabs = ({ data, loading }: DashboardTabsProps) => {
                     <div key={index} className="flex justify-between items-center p-2 border rounded">
                       <div className="flex items-center gap-2">
                         <span className="text-lg">
-                          {pais.pais === 'CL' ? '🇨🇱' : 
-                           pais.pais === 'AR' ? '🇦🇷' : 
-                           pais.pais === 'MX' ? '🇲🇽' : 
-                           pais.pais === 'ES' ? '🇪🇸' : '🌍'}
+                          {pais.bandera || '🌍'}  {/* ← BANDERA DINÁMICA */}
                         </span>
                         <span>{pais.pais}</span>
                       </div>
