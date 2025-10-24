@@ -14,10 +14,10 @@ interface FiltersSectionProps {
 
 // Configuración de países para el filtro
 const COUNTRIES_FOR_FILTER = [
-  { code: 'CL', name: 'Chile', flag: '🇨🇱' },
-  { code: 'AR', name: 'Argentina', flag: '🇦🇷' },
-  { code: 'MX', name: 'México', flag: '🇲🇽' },
-  { code: 'ES', name: 'España', flag: '🇪🇸' }
+  { code: 'cl', name: 'Chile', flag: '🇨🇱' },
+  { code: 'arg', name: 'Argentina', flag: '🇦🇷' },
+  { code: 'mx', name: 'México', flag: '🇲🇽' },
+  { code: 'esp', name: 'España', flag: '🇪🇸' }
 ];
 
 export const FiltersSection = ({ filters, onFilterChange, agents, loading }: FiltersSectionProps) => {

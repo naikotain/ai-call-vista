@@ -898,6 +898,16 @@ if (filters.country !== 'all') {
       throw callsError;
     }
 
+if (filters.country !== 'all') {
+  // Convertir el filtro a minúsculas para que coincida con la BD
+  const normalizedCountryCode = filters.country.toLowerCase();
+  console.log('🔄 Filtro país normalizado:', { 
+    original: filters.country, 
+    normalizado: normalizedCountryCode 
+  });
+  
+  query = query.eq('country_code', normalizedCountryCode);
+}
     // Fetch agents for agent performance
     const { data: agents, error: agentsError } = await supabase
       .from('agents')
