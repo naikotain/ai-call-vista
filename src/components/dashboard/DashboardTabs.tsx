@@ -209,7 +209,13 @@ export const DashboardTabs = ({ data, loading }: DashboardTabsProps) => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {loading ? <ChartSkeleton /> : <SuccessByHourChart />}
+                {loading ? <ChartSkeleton /> : (
+                  <SuccessByHourChart 
+                    data={data.successByHour || []}
+                    filters={data.filters} // ← Necesitas agregar filters a tu DashboardData interface
+                    loading={loading}
+                  />
+                )}
               </CardContent>
             </Card>
             

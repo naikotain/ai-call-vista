@@ -8,29 +8,29 @@ export interface CountryCost {
 }
 
 export const COUNTRY_COSTS: Record<string, CountryCost> = {
-  'CL': {
-    code: 'CL',
+  'cl': {  // ✅ Todo en minúsculas
+    code: 'cl',
     name: 'Chile',
     costPerMinute: 0.04,
     currency: 'USD',
     flag: '🇨🇱'
   },
-  'ARG': {
-    code: 'AR',
+  'arg': {  // ✅ Todo en minúsculas
+    code: 'arg',
     name: 'Argentina',
     costPerMinute: 0.0019,
     currency: 'USD',
     flag: '🇦🇷'
   },
-  'MX': {
-    code: 'MX',
+  'mx': {  // ✅ Todo en minúsculas
+    code: 'mx',
     name: 'México',
     costPerMinute: 0.02,
     currency: 'USD',
     flag: '🇲🇽'
   },
-  'ESP': {
-    code: 'ES',
+  'esp': {  // ✅ Todo en minúsculas
+    code: 'esp',
     name: 'España',
     costPerMinute: 0.91,
     currency: 'USD',
@@ -39,14 +39,16 @@ export const COUNTRY_COSTS: Record<string, CountryCost> = {
 };
 
 // Función para obtener costo por país con fallback seguro
+
 export const getCountryCost = (countryCode: string): CountryCost => {
-  const normalizedCode = countryCode.trim().toUpperCase();
+  // ✅ CAMBIO: toLowerCase() en lugar de toUpperCase()
+  const normalizedCode = countryCode.trim().toLowerCase();
   const country = COUNTRY_COSTS[normalizedCode];
   
   if (!country) {
     return {
       code: normalizedCode,
-      name: `País ${normalizedCode}`,
+      name: `País ${normalizedCode.toUpperCase()}`, // Aquí sí puedes mostrar en mayúsculas para display
       costPerMinute: 0.05,
       currency: 'USD',
       flag: '🏳️'

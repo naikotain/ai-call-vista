@@ -96,6 +96,7 @@ export interface DashboardData {
     totalCalls: number;
     successfulCalls: number;
   }>;
+    filters: DashboardFilters;
 }
 
 // FUNCIÓN PARA CONVERTIR "1m 54s" A SEGUNDOS
@@ -178,15 +179,20 @@ export const formatDurationMMSS = (minutes: number): string => {
   return `${mins}:${segs.toString().padStart(2, '0')}`;
 };
 
-// ✅ FUNCIÓN CORREGIDA: calcular éxito por hora
+
+
 const calculateSuccessByHour = (calls: Call[]): Array<{
   hour: string;
   successRate: number;
   totalCalls: number;
   successfulCalls: number;
 }> => {
+  
+  console.log('🔍 calculateSuccessByHour - Llamadas recibidas:', calls?.length);
+  
   const hoursData: Record<number, { total: number; successful: number }> = {};
   
+  // Inicializar todas las horas
   for (let hour = 0; hour < 24; hour++) {
     hoursData[hour] = { total: 0, successful: 0 };
   }
@@ -202,8 +208,16 @@ const calculateSuccessByHour = (calls: Call[]): Array<{
       hoursData[callHour].successful += 1;
     }
   });
-  
-  return Object.entries(hoursData)
+
+  // ✅ DEBUG DETALLADO ANTES DE FILTRAR
+  console.log('📊 ANTES de filtrar - Distribución por hora:');
+  Object.entries(hoursData).forEach(([hour, data]) => {
+    if (data.total > 0) {
+      console.log(`  Hora ${hour}:00 - ${data.total} llamadas, ${data.successful} exitosas`);
+    }
+  });
+
+  const allHours = Object.entries(hoursData)
     .map(([hour, data]) => {
       const hourNum = parseInt(hour);
       const successRate = data.total > 0 ? Math.round((data.successful / data.total) * 100) : 0;
@@ -214,9 +228,19 @@ const calculateSuccessByHour = (calls: Call[]): Array<{
         totalCalls: data.total,
         successfulCalls: data.successful
       };
-    })
-    .filter(item => item.totalCalls > 0)
-    .sort((a, b) => parseInt(a.hour) - parseInt(b.hour));
+    });
+
+  const filteredHours = allHours.filter(item => item.totalCalls > 0);
+
+  // ✅ DEBUG DETALLADO DESPUÉS DE FILTRAR
+  console.log('🎯 DESPUÉS de filtrar:');
+  console.log('  - Total horas antes de filtrar:', allHours.length);
+  console.log('  - Total horas después de filtrar:', filteredHours.length);
+  console.log('  - Horas con datos:', filteredHours.map(h => h.hour));
+
+  const result = filteredHours.sort((a, b) => parseInt(a.hour) - parseInt(b.hour));
+  
+  return result;
 };
 
 // ✅ NUEVAS FUNCIONES DE AGRUPAMIENTO SEGÚN FILTRO
@@ -756,6 +780,7 @@ calls?.slice(0, 5).forEach(call => {
   console.log(`Raw: "${raw}" | Length: ${raw.length} | Trimmed: "${raw.trim()}"`);
 });
 
+
 costoPorPaisFormateado.forEach(pais => {
   console.log(`País: ${pais.pais}, Código: "${pais.codigo}" | Bandera: ${pais.bandera}`);
 });
@@ -814,6 +839,7 @@ export interface DashboardFilters {
 
 // Fetch data from Supabase
 async function fetchDataFromSupabase(filters: DashboardFilters): Promise<DashboardData> {
+
   try {
     let query = supabase
       .from('calls')
@@ -836,10 +862,11 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
       query = query.eq('channel', filters.channel);
     }
 
-    // NUEVO: Aplicar filtro por país
-    if (filters.country !== 'all') {
-      query = query.eq('country_code', filters.country);
-    }
+if (filters.country !== 'all') {
+  // Normalizar código de país a minúsculas para coincidir con la BD
+  const normalizedCountryCode = filters.country.toLowerCase();
+  query = query.eq('country_code', normalizedCountryCode);
+}
 
     // Aplicar filtro de rango de tiempo
     if (filters.timeRange !== 'all') {
@@ -907,6 +934,7 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
     console.log('Successful calls:', successfulCalls);
     console.log('Success rate:', successRate + '%');
 
+
     // ✅ USAR NUEVAS FUNCIONES DE AGRUPAMIENTO
     // 1. Volumen de llamadas por período
     const callVolume = getCallVolumeData(calls || [], filters.timeRange);
@@ -929,7 +957,13 @@ async function fetchDataFromSupabase(filters: DashboardFilters): Promise<Dashboa
       neutral: calls?.filter(call => call.sentiment === 'neutral').length || 0,
       negative: calls?.filter(call => call.sentiment === 'negative').length || 0
     };
-
+    //verificacion datos tasa exito por hora
+    
+    console.log('🔄 fetchDataFromSupabase - Filtros aplicados:', {
+              filters,
+              callsCount: calls?.length,
+              successByHourCount: successByHour.length
+            });
     const sentimentTotal = sentimentCounts.positive + sentimentCounts.neutral + sentimentCounts.negative;
     
     const sentiment = [
@@ -1134,7 +1168,8 @@ return {
     }
   },
   disconnectMetrics,
-  successByHour
+  successByHour,
+  filters: filters
 };
 
   } catch (error) {
@@ -1202,9 +1237,12 @@ return {
     },
     reasons: []
   },
-  successByHour: []
+  successByHour: [],
+  filters: filters
 };
   }
+
+  
 }
 
 export const useDashboardData = () => {
