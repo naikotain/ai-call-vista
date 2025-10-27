@@ -1,0 +1,8 @@
+[build]
+  publish = "dist"           # ✅ Netlify sabe dónde están tus archivos
+  command = "npm run build"  # ✅ Cómo construir tu app
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200              # ✅ Fix para React Router
