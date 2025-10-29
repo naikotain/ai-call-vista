@@ -1093,6 +1093,25 @@ if (filters.country !== 'all') {
       
       return performanceRow;
     });
+    
+  // ✅ AGREGAR DEBUG AQUÍ - JUSTO DESPUÉS DEL CÁLCULO
+  console.log('=== DEBUG useDashboardData ===');
+  console.log('Total llamadas recibidas:', calls.length);
+  console.log('Filtros activos:', filters);
+  console.log('Agentes encontrados:', agents.length);
+  
+  // Debug específico para agentPerformanceData
+  console.log('📊 agentPerformanceData RAW:');
+  agentPerformanceData.forEach(agentData => {
+    console.log(`Agente: ${agentData.agentName}`);
+    console.log(`  - Total llamadas: ${agentData.totalCalls}`);
+    console.log(`  - Tasa éxito: ${agentData.successRate}%`);
+    console.log(`  - Duración promedio: ${agentData.avgDuration} min`);
+    console.log(`  - Llamadas/hora: ${agentData.callsPerHour}`);
+  });
+
+  // Debug del cálculo final
+  console.log('🎯 agentPerformance (resultado final):', agentPerformance);
 
     // Métricas para fallos
     const failedMetrics = {

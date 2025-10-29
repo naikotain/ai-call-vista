@@ -7,6 +7,7 @@ interface AgentPerformanceChartProps {
 }
 
 export const AgentPerformanceChart = ({ data, loading }: AgentPerformanceChartProps) => {
+  
   if (loading) {
     return (
       <div className="h-96 w-full flex items-center justify-center">
