@@ -153,7 +153,7 @@ const Index = () => {
 
         {/* Vista de Tabla de Llamadas */}
         {activeView === 'call-table' && (
-          <CallsTable />
+          <CallsTable filters={filters} />
         )}
       </div>
     </div>

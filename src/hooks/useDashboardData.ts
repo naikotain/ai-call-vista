@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useSupabase } from '@/integrations/supabase/multi-client';
 import { Database } from '@/integrations/supabase/types';
 import { COUNTRY_COSTS, calculateCallCost, getCountryCost } from '@/config/countryCosts';
 
@@ -828,18 +828,20 @@ export interface Agent {
   email?: string | null;  // ✅ Hacer email opcional
 }
 
-export interface DashboardFilters {
-  agent: string;
-  timeRange: string;
-  callType: string;
-  status: string;
-  channel: string;
-  country: string;
-}
+  export interface DashboardFilters {
+    agent: string;
+    timeRange: string;
+    callType: string;
+    status: string;
+    channel: string;
+    country: string;
+  }
 
 // Fetch data from Supabase
-async function fetchDataFromSupabase(filters: DashboardFilters): Promise<DashboardData> {
-
+async function fetchDataFromSupabase(
+  supabase: any, // ← Recibir supabase como parámetro
+  filters: DashboardFilters
+): Promise<DashboardData> {
   try {
     let query = supabase
       .from('calls')
@@ -967,13 +969,9 @@ if (filters.country !== 'all') {
       neutral: calls?.filter(call => call.sentiment === 'neutral').length || 0,
       negative: calls?.filter(call => call.sentiment === 'negative').length || 0
     };
-    //verificacion datos tasa exito por hora
+
     
-    console.log('🔄 fetchDataFromSupabase - Filtros aplicados:', {
-              filters,
-              callsCount: calls?.length,
-              successByHourCount: successByHour.length
-            });
+
     const sentimentTotal = sentimentCounts.positive + sentimentCounts.neutral + sentimentCounts.negative;
     
     const sentiment = [
@@ -1094,24 +1092,10 @@ if (filters.country !== 'all') {
       return performanceRow;
     });
     
-  // ✅ AGREGAR DEBUG AQUÍ - JUSTO DESPUÉS DEL CÁLCULO
-  console.log('=== DEBUG useDashboardData ===');
-  console.log('Total llamadas recibidas:', calls.length);
-  console.log('Filtros activos:', filters);
-  console.log('Agentes encontrados:', agents.length);
-  
-  // Debug específico para agentPerformanceData
-  console.log('📊 agentPerformanceData RAW:');
-  agentPerformanceData.forEach(agentData => {
-    console.log(`Agente: ${agentData.agentName}`);
-    console.log(`  - Total llamadas: ${agentData.totalCalls}`);
-    console.log(`  - Tasa éxito: ${agentData.successRate}%`);
-    console.log(`  - Duración promedio: ${agentData.avgDuration} min`);
-    console.log(`  - Llamadas/hora: ${agentData.callsPerHour}`);
-  });
 
-  // Debug del cálculo final
-  console.log('🎯 agentPerformance (resultado final):', agentPerformance);
+  
+
+
 
     // Métricas para fallos
     const failedMetrics = {
@@ -1287,6 +1271,7 @@ export const useDashboardData = () => {
     country: 'all'
   });
   const fetchAgents = async () => {
+    const supabase = useSupabase(); // ← Obtener aquí
     try {
       const { data: agentsData, error } = await supabase
         .from('agents')
@@ -1305,19 +1290,22 @@ export const useDashboardData = () => {
   };
 
   const updateData = async (newFilters: Partial<DashboardFilters>) => {
+    const supabase = useSupabase();
     const updatedFilters = { ...filters, ...newFilters };
     setFilters(updatedFilters);
     setLoading(true);
     
-    try {
-      const newData = await fetchDataFromSupabase(updatedFilters);
-      setData(newData);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    // Pasar supabase como parámetro
+    const newData = await fetchDataFromSupabase(supabase, updatedFilters);
+    setData(newData);
+  } catch (error) {
+    console.error('Error fetching data:', error);
+  } finally {
+    setLoading(false);
+  }
+};
+  
 
   useEffect(() => {
     fetchAgents();

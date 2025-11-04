@@ -1,8 +1,9 @@
 // components/calls/CallsTable.tsx
 'use client';
 
+import { DashboardFilters } from '@/hooks/useDashboardData';
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useSupabase } from '@/integrations/supabase/multi-client';
 import { Database } from '@/integrations/supabase/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -27,38 +28,88 @@ import {
 type Call = Database['public']['Tables']['calls']['Row'] & {
   agents?: { name: string } | null;
 } & {
-  // ✅ AÑADIR ESTAS PROPIEDADES FALTANTES
   country_code?: string;
   retell_cost?: number;
   costo?: number;
   country_name?: string;
 };
 
+interface CallsTableProps {
+  filters?: DashboardFilters;
+}
 
-export const CallsTable = () => {
+// ✅ CORRECCIÓN: Recibir filters como prop
+export const CallsTable = ({ filters }: CallsTableProps) => {
+  const supabase = useSupabase();
   const [calls, setCalls] = useState<Call[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
 
+  // ✅ AHORA filters existe porque lo recibimos como prop
   useEffect(() => {
     fetchCalls();
-  }, []);
+  }, [filters]);
 
   const fetchCalls = async () => {
+    console.log('🚀 CallsTable - Starting fetch with filters:', filters);
     try {
       setLoading(true);
-      const { data: callsData, error } = await supabase
+      
+      let query = supabase
         .from('calls')
-        .select(`
-          *,
-          agents:api (name)
-        `)
-        .order('started_at', { ascending: false });
+        .select(`*, agents:api (name)`);
+
+      // ✅ APLICAR FILTROS SI EXISTEN
+      if (filters) {
+        console.log('🔍 CallsTable - Aplicando filtros:', filters);
+        
+        if (filters.agent !== 'all') {
+          query = query.eq('api', filters.agent);
+        }
+        if (filters.status !== 'all') {
+          query = query.eq('status', filters.status);
+        }
+        if (filters.callType !== 'all') {
+          query = query.eq('tipo_de_llamada', filters.callType);
+        }
+        if (filters.country !== 'all') {
+          query = query.eq('country_code', filters.country.toLowerCase());
+        }
+        if (filters.channel !== 'all') {
+          query = query.eq('channel', filters.channel);
+        }
+        if (filters.timeRange !== 'all') {
+          const date = new Date();
+          let startDate: Date;
+          
+          switch (filters.timeRange) {
+            case 'today':
+              startDate = new Date(date.setHours(0, 0, 0, 0));
+              break;
+            case 'week':
+              startDate = new Date(date.setDate(date.getDate() - 7));
+              break;
+            case 'month':
+              startDate = new Date(date.setMonth(date.getMonth() - 1));
+              break;
+            default:
+              startDate = new Date(0);
+          }
+          query = query.gte('started_at', startDate.toISOString());
+        }
+      }
+
+      query = query.order('started_at', { ascending: false });
+
+      const { data: callsData, error } = await query;
 
       if (error) throw error;
+      
+      console.log('✅ CallsTable - Llamadas encontradas:', callsData?.length);
       setCalls(callsData || []);
+      
     } catch (error) {
       console.error('Error fetching calls:', error);
     } finally {
