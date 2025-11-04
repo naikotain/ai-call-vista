@@ -1,8 +1,8 @@
 export const CLIENT_CONFIGS = {
   'cliente1': {
     name: 'Cliente 1',
-    supabaseUrl: 'https://vbufiofpxvduoekqbsfu.supabase.co',
-    supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZidWZpb2ZweHZkdW9la3Fic2Z1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2ODAzMjEsImV4cCI6MjA3NzI1NjMyMX0.kn9IMarPnDe0RCC_ape4g_fwegLEn5ZPHYupdl2t76I'
+    supabaseUrl: 'https://bfahlnyfrurjenjwinoc.supabase.co',
+    supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmYWhsbnlmcnVyamVuandpbm9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyODI2NjUsImV4cCI6MjA3Nzg1ODY2NX0.hbYWAAAar4WpDs_wA8B8hl2s88_MAlAAG2WXx-lsFDg'
   },
   'cliente2': {
     name: 'Cliente 2',
