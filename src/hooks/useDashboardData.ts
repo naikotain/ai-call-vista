@@ -3,8 +3,14 @@ import { useSupabase } from '@/integrations/supabase/multi-client';
 import { Database } from '@/integrations/supabase/types';
 import { COUNTRY_COSTS, calculateCallCost, getCountryCost } from '@/config/countryCosts';
 
-// Usa el tipo correcto de la base de datos
-type Call = Database['public']['Tables']['calls']['Row'];
+// ✅ NUEVOS IMPORTS PARA NORMALIZACIÓN
+import { useDashboardConfig } from '@/hooks/useDashboardConfig';
+import { DataNormalizer } from '@/services/data-normalizer';
+import { NormalizedCall } from '@/types/normalized';
+import { getFieldMapping } from '@/config/field-mappings';
+
+// Usar el tipo normalizado en lugar del raw de Supabase
+type Call = NormalizedCall;
 
 export interface DisconnectionReason {
   reason: string;
@@ -96,7 +102,7 @@ export interface DashboardData {
     totalCalls: number;
     successfulCalls: number;
   }>;
-    filters: DashboardFilters;
+  filters: DashboardFilters;
 }
 
 // FUNCIÓN PARA CONVERTIR "1m 54s" A SEGUNDOS
@@ -113,19 +119,26 @@ const parseDurationToSeconds = (durationStr: string | null): number => {
 };
 
 // Función para manejar diferentes formatos de duración
-const parseDuration = (durationStr: string | null): number => {
-  if (!durationStr) return 0;
+// Función para manejar diferentes formatos de duración - ACTUALIZADA
+const parseDuration = (durationInput: string | number | null): number => {
+  if (!durationInput) return 0;
   
-  if (/^\d+$/.test(durationStr)) {
-    return parseInt(durationStr);
+  // Si ya es un número, devolverlo directamente
+  if (typeof durationInput === 'number') {
+    return durationInput;
   }
   
-  if (durationStr.includes('m') || durationStr.includes('s')) {
-    return parseDurationToSeconds(durationStr);
+  // Si es string, procesarlo como antes
+  if (/^\d+$/.test(durationInput)) {
+    return parseInt(durationInput);
   }
   
-  if (/^\d+:\d+$/.test(durationStr)) {
-    const [minutes, seconds] = durationStr.split(':').map(Number);
+  if (durationInput.includes('m') || durationInput.includes('s')) {
+    return parseDurationToSeconds(durationInput);
+  }
+  
+  if (/^\d+:\d+$/.test(durationInput)) {
+    const [minutes, seconds] = durationInput.split(':').map(Number);
     return (minutes * 60) + seconds;
   }
   
@@ -179,7 +192,17 @@ export const formatDurationMMSS = (minutes: number): string => {
   return `${mins}:${segs.toString().padStart(2, '0')}`;
 };
 
-
+// Función para obtener el cliente actual de la URL
+function getCurrentClient(): string {
+  if (typeof window === 'undefined') return 'cliente1';
+  
+  const urlParams = new URLSearchParams(window.location.search);
+  const client = urlParams.get('client');
+  
+  // Validar cliente o usar default
+  const validClients = ['cliente1', 'cliente2'];
+  return validClients.includes(client || '') ? client! : 'cliente1';
+}
 
 const calculateSuccessByHour = (calls: Call[]): Array<{
   hour: string;
@@ -430,7 +453,6 @@ const getCallDurationByDayOfWeek = (calls: Call[]) => {
   });
 };
 
-
 const getCallDurationByDayOfMonth = (calls: Call[]) => {
   const durationData: Array<{ name: string; duration: number }> = [];
   const today = new Date();
@@ -596,8 +618,8 @@ const getInboundOutboundByDayOfWeekAllTime = (calls: Call[]) => {
       return new Date(call.started_at).getDay() === day.id;
     }) || [];
 
-    const entrantes = dayCalls.filter(call => call.tipo_de_llamada === 'inbound').length;
-    const salientes = dayCalls.filter(call => call.tipo_de_llamada === 'outbound').length;
+    const entrantes = dayCalls.filter(call => call.call_type === 'inbound').length;
+    const salientes = dayCalls.filter(call => call.call_type === 'outbound').length;
 
     return {
       name: day.name,
@@ -621,8 +643,8 @@ const getInboundOutboundByHour = (calls: Call[]) => {
              callDate.getFullYear() === today.getFullYear();
     }) || [];
 
-    const entrantes = hourCalls.filter(call => call.tipo_de_llamada === 'inbound').length;
-    const salientes = hourCalls.filter(call => call.tipo_de_llamada === 'outbound').length;
+    const entrantes = hourCalls.filter(call => call.call_type === 'inbound').length;
+    const salientes = hourCalls.filter(call => call.call_type === 'outbound').length;
 
     inboundOutboundData.push({
       name: `${hour.toString().padStart(2, '0')}:00`,
@@ -643,8 +665,8 @@ const getInboundOutboundByDayOfWeek = (calls: Call[]) => {
       return new Date(call.started_at).getDay() === day.id;
     }) || [];
 
-    const entrantes = dayCalls.filter(call => call.tipo_de_llamada === 'inbound').length;
-    const salientes = dayCalls.filter(call => call.tipo_de_llamada === 'outbound').length;
+    const entrantes = dayCalls.filter(call => call.call_type === 'inbound').length;
+    const salientes = dayCalls.filter(call => call.call_type === 'outbound').length;
 
     return {
       name: day.name,
@@ -668,8 +690,8 @@ const getInboundOutboundByDayOfMonth = (calls: Call[]) => {
              callDate.getFullYear() === today.getFullYear();
     }) || [];
 
-    const entrantes = dayCalls.filter(call => call.tipo_de_llamada === 'inbound').length;
-    const salientes = dayCalls.filter(call => call.tipo_de_llamada === 'outbound').length;
+    const entrantes = dayCalls.filter(call => call.call_type === 'inbound').length;
+    const salientes = dayCalls.filter(call => call.call_type === 'outbound').length;
 
     inboundOutboundData.push({
       name: day.toString(),
@@ -699,12 +721,12 @@ const calcularCostosConSistemaPais = (calls: Call[]) => {
     // Usar country_code o default a Chile para datos antiguos
     const rawCountryCode = call.country_code || 'CL';
     const countryCode = rawCountryCode.trim().toUpperCase();
-    const retellCost = call.retell_cost || 0;
+    const retellCost = call.cost || 0; // ✅ CAMBIADO: usar campo normalizado
     
     // Calcular costo usando el nuevo sistema
-    const costoTotal = calculateCallCost(retellCost, call.duration || '0m', countryCode);
+    const costoTotal = calculateCallCost(retellCost, call.duration?.toString() || '0m', countryCode);
     const costoLlamada = costoTotal - retellCost;
-    const minutos = parseDuration(call.duration || '0m') / 60; // ✅ CALCULAR MINUTOS
+    const minutos = parseDuration(call.duration?.toString() || '0m') / 60; // ✅ CALCULAR MINUTOS
     
     totalCosto += costoTotal;
     totalRetellCost += retellCost;
@@ -719,20 +741,19 @@ const calcularCostosConSistemaPais = (calls: Call[]) => {
     costoPorPais[countryCode].llamadas += 1;
 
     // Acumular por tipo
-    if (call.tipo_de_llamada === 'inbound') {
+    if (call.call_type === 'inbound') { // ✅ CAMBIADO: usar campo normalizado
       costoPorTipo.inbound += costoTotal;
     } else {
       costoPorTipo.outbound += costoTotal;
     }
 
     // Acumular por agente
-    const agentId = call.api || 'unknown';
+    const agentId = call.agent_id || 'unknown'; // ✅ CAMBIADO: usar campo normalizado
     if (!costoPorAgente[agentId]) {
       costoPorAgente[agentId] = { costo: 0, llamadas: 0 };
     }
     costoPorAgente[agentId].costo += costoTotal;
     costoPorAgente[agentId].llamadas += 1;
-
 
     // ✅ ACUMULAR COSTOS POR DÍA CORRECTAMENTE
     if (call.started_at) {
@@ -756,9 +777,6 @@ const calcularCostosConSistemaPais = (calls: Call[]) => {
     { key: 'domingo', name: 'Dom', orden: 6 }
   ];
 
-    
-
-  
   // Formatear costo por país para el dashboard
   const costoPorPaisFormateado = Object.entries(costoPorPais).map(([codigo, data]) => {
     const country = getCountryCost(codigo);
@@ -772,18 +790,7 @@ const calcularCostosConSistemaPais = (calls: Call[]) => {
       porcentaje: parseFloat(porcentaje.toFixed(2)),
       bandera: country.flag
     };
-    
   });
-console.log('=== DEBUG BANDERAS - VERIFICANDO ESPACIOS ===');
-calls?.slice(0, 5).forEach(call => {
-  const raw = call.country_code || 'CL';
-  console.log(`Raw: "${raw}" | Length: ${raw.length} | Trimmed: "${raw.trim()}"`);
-});
-
-
-costoPorPaisFormateado.forEach(pais => {
-  console.log(`País: ${pais.pais}, Código: "${pais.codigo}" | Bandera: ${pais.bandera}`);
-});
 
   // Formatear costo por agente
   const costoPorAgenteFormateado = Object.entries(costoPorAgente).map(([agentId, data]) => ({
@@ -803,12 +810,11 @@ costoPorPaisFormateado.forEach(pais => {
       ? parseFloat(((costoPorDia[dia.key] || 0) / (minutosPorDia[dia.key] || 1)).toFixed(6))
       : 0
   }));
-  
 
   return {
     totalCosto: parseFloat(totalCosto.toFixed(6)),
     costoPromedioPorLlamada: calls.length > 0 ? parseFloat((totalCosto / calls.length).toFixed(6)) : 0,
-    costoPorMinuto: parseFloat(costoPorMinuto.toFixed(6)), // Ya no es fijo, se calcula por país
+    costoPorMinuto: parseFloat(costoPorMinuto.toFixed(6)),
     costoPorTipo,
     costoPorAgente: costoPorAgenteFormateado,
     costoPorDia: costoPorDiaFormateado,
@@ -825,21 +831,21 @@ costoPorPaisFormateado.forEach(pais => {
 export interface Agent {
   id: string;
   name: string;
-  email?: string | null;  // ✅ Hacer email opcional
+  email?: string | null;
 }
 
-  export interface DashboardFilters {
-    agent: string;
-    timeRange: string;
-    callType: string;
-    status: string;
-    channel: string;
-    country: string;
-  }
+export interface DashboardFilters {
+  agent: string;
+  timeRange: string;
+  callType: string;
+  status: string;
+  channel: string;
+  country: string;
+}
 
 // Fetch data from Supabase
 async function fetchDataFromSupabase(
-  supabase: any, // ← Recibir supabase como parámetro
+  supabase: any,
   filters: DashboardFilters
 ): Promise<DashboardData> {
   try {
@@ -864,11 +870,11 @@ async function fetchDataFromSupabase(
       query = query.eq('channel', filters.channel);
     }
 
-if (filters.country !== 'all') {
-  // Normalizar código de país a minúsculas para coincidir con la BD
-  const normalizedCountryCode = filters.country.toLowerCase();
-  query = query.eq('country_code', normalizedCountryCode);
-}
+    if (filters.country !== 'all') {
+      // Normalizar código de país a minúsculas para coincidir con la BD
+      const normalizedCountryCode = filters.country.toLowerCase();
+      query = query.eq('country_code', normalizedCountryCode);
+    }
 
     // Aplicar filtro de rango de tiempo
     if (filters.timeRange !== 'all') {
@@ -893,23 +899,37 @@ if (filters.country !== 'all') {
     }
 
     // Ejecutar la consulta
-    const { data: calls, error: callsError } = await query;
+    const { data: rawCalls, error: callsError } = await query;
 
     if (callsError) {
       console.error('Error fetching calls:', callsError);
       throw callsError;
     }
 
-if (filters.country !== 'all') {
-  // Convertir el filtro a minúsculas para que coincida con la BD
-  const normalizedCountryCode = filters.country.toLowerCase();
-  console.log('🔄 Filtro país normalizado:', { 
-    original: filters.country, 
-    normalizado: normalizedCountryCode 
-  });
-  
-  query = query.eq('country_code', normalizedCountryCode);
-}
+    // ✅ NUEVO: OBTENER CLIENTE Y NORMALIZAR DATOS
+    const clientId = getCurrentClient();
+    const normalizedCalls = DataNormalizer.normalizeCallsData(rawCalls || [], clientId);
+
+
+    // ✅ VERIFICACIÓN DEL SISTEMA DE NORMALIZACIÓN - EN EL LUGAR CORRECTO
+    const fieldMap = getFieldMapping(clientId); // Obtener fieldMap aquí
+    console.log('🎯 SISTEMA DE NORMALIZACIÓN - VERIFICACIÓN:', {
+      cliente: clientId,
+      llamadasRaw: rawCalls?.length || 0,
+      llamadasNormalizadas: normalizedCalls.length,
+      camposMapeados: Object.keys(fieldMap).length,
+      muestraNormalizacion: normalizedCalls.slice(0, 2).map(call => ({
+        status: { raw: call._raw?.status, normalizado: call.status },
+        call_type: { raw: call._raw?.tipo_de_llamada, normalizado: call.call_type },
+        duration: { raw: call._raw?.duration, normalizado: call.duration, tipo: typeof call.duration },
+        cost: { raw: call._raw?.retell_cost, normalizado: call.cost }
+      }))
+    });
+    
+
+    // ✅ CONTINUAR CON LOS DATOS NORMALIZADOS
+    const calls = normalizedCalls;
+
     // Fetch agents for agent performance
     const { data: agents, error: agentsError } = await supabase
       .from('agents')
@@ -927,9 +947,9 @@ if (filters.country !== 'all') {
     const voicemailCalls = calls?.filter(call => call.status === 'voicemail').length || 0;
     const answeredCalls = calls?.filter(call => call.status !== 'failed').length || 0;
     const failedCalls = calls?.filter(call => call.status === 'failed').length || 0;
-    const inboundCalls = calls?.filter(call => call.tipo_de_llamada === 'inbound').length || 0;
-    const outboundCalls = calls?.filter(call => call.tipo_de_llamada === 'outbound').length || 0;
-    const totalSeconds = calls?.reduce((sum, call) => sum + parseDuration(call.duration), 0) || 0;
+    const inboundCalls = calls?.filter(call => call.call_type === 'inbound').length || 0; // ✅ CAMBIADO
+    const outboundCalls = calls?.filter(call => call.call_type === 'outbound').length || 0; // ✅ CAMBIADO
+    const totalSeconds = calls?.reduce((sum, call) => sum + parseDuration(call.duration?.toString()), 0) || 0;
     const averageDurationSeconds = totalCalls > 0 ? totalSeconds / totalCalls : 0;
     const averageDurationMinutes = averageDurationSeconds / 60;
     const averageDurationFormatted = Math.round(averageDurationMinutes * 10) / 10;
@@ -945,7 +965,7 @@ if (filters.country !== 'all') {
     console.log('Total calls:', totalCalls);
     console.log('Successful calls:', successfulCalls);
     console.log('Success rate:', successRate + '%');
-
+    
 
     // ✅ USAR NUEVAS FUNCIONES DE AGRUPAMIENTO
     // 1. Volumen de llamadas por período
@@ -969,8 +989,6 @@ if (filters.country !== 'all') {
       neutral: calls?.filter(call => call.sentiment === 'neutral').length || 0,
       negative: calls?.filter(call => call.sentiment === 'negative').length || 0
     };
-
-    
 
     const sentimentTotal = sentimentCounts.positive + sentimentCounts.neutral + sentimentCounts.negative;
     
@@ -1025,7 +1043,7 @@ if (filters.country !== 'all') {
 
     // ✅ AGENT PERFORMANCE CORREGIDO
     const agentPerformanceData = agents?.map(agent => {
-      const agentCalls = calls?.filter(call => call.api === agent.id) || [];
+      const agentCalls = calls?.filter(call => call.agent_id === agent.id) || []; // ✅ CAMBIADO
       const totalCalls = agentCalls.length;
 
       if (totalCalls === 0) {
@@ -1045,7 +1063,7 @@ if (filters.country !== 'all') {
 
       // Calcular duración promedio en minutos
       const totalDurationMinutes = agentCalls.reduce((sum, call) => {
-        const durationSeconds = parseDuration(call.duration);
+        const durationSeconds = parseDuration(call.duration?.toString());
         return sum + (durationSeconds / 60);
       }, 0);
       
@@ -1091,20 +1109,15 @@ if (filters.country !== 'all') {
       
       return performanceRow;
     });
-    
-
-  
-
-
 
     // Métricas para fallos
     const failedMetrics = {
       totalFailed: failedCalls,
-      failedInbound: calls?.filter(call => call.status === 'failed' && call.tipo_de_llamada === 'inbound').length || 0,
-      failedOutbound: calls?.filter(call => call.status === 'failed' && call.tipo_de_llamada === 'outbound').length || 0,
+      failedInbound: calls?.filter(call => call.status === 'failed' && call.call_type === 'inbound').length || 0, // ✅ CAMBIADO
+      failedOutbound: calls?.filter(call => call.status === 'failed' && call.call_type === 'outbound').length || 0, // ✅ CAMBIADO
       failureRate: totalCalls > 0 ? Math.round((failedCalls / totalCalls) * 100) : 0,
-      inboundFailureRate: inboundCalls > 0 ? Math.round((calls?.filter(call => call.status === 'failed' && call.tipo_de_llamada === 'inbound').length || 0) / inboundCalls * 100) : 0,
-      outboundFailureRate: outboundCalls > 0 ? Math.round((calls?.filter(call => call.status === 'failed' && call.tipo_de_llamada === 'outbound').length || 0) / outboundCalls * 100) : 0
+      inboundFailureRate: inboundCalls > 0 ? Math.round((calls?.filter(call => call.status === 'failed' && call.call_type === 'inbound').length || 0) / inboundCalls * 100) : 0,
+      outboundFailureRate: outboundCalls > 0 ? Math.round((calls?.filter(call => call.status === 'failed' && call.call_type === 'outbound').length || 0) / outboundCalls * 100) : 0
     };
 
     // ✅ NUEVO: Calcular costos con sistema por país
@@ -1154,36 +1167,37 @@ if (filters.country !== 'all') {
       reasons: disconnectReasons
     };
 
-return {
-  pickupRate,
-  successRate,
-  transferRate,
-  voicemailRate,
-  sentimentTrend,
-  averageDuration: averageDurationFormatted,
-  totalCalls,
-  totalInbound: inboundCalls,
-  totalOutbound: outboundCalls,
-  callVolume,
-  callDuration,
-  latency,
-  inboundOutbound,
-  sentiment,
-  agentPerformance,
-  failedMetrics,
-  costMetrics: {
-    ...costMetrics,
-    desgloseCostos: {
-      ...costMetrics.desgloseCostos,
-      porcentajeRetell: costMetrics.totalCosto > 0 
-        ? parseFloat(((costMetrics.desgloseCostos.totalRetell / costMetrics.totalCosto) * 100).toFixed(2))
-        : 0
-    }
-  },
-  disconnectMetrics,
-  successByHour,
-  filters: filters
-};
+
+    return {
+      pickupRate,
+      successRate,
+      transferRate,
+      voicemailRate,
+      sentimentTrend,
+      averageDuration: averageDurationFormatted,
+      totalCalls,
+      totalInbound: inboundCalls,
+      totalOutbound: outboundCalls,
+      callVolume,
+      callDuration,
+      latency,
+      inboundOutbound,
+      sentiment,
+      agentPerformance,
+      failedMetrics,
+      costMetrics: {
+        ...costMetrics,
+        desgloseCostos: {
+          ...costMetrics.desgloseCostos,
+          porcentajeRetell: costMetrics.totalCosto > 0 
+            ? parseFloat(((costMetrics.desgloseCostos.totalRetell / costMetrics.totalCosto) * 100).toFixed(2))
+            : 0
+        }
+      },
+      disconnectMetrics,
+      successByHour,
+      filters: filters
+    };
 
   } catch (error) {
     console.error('Error fetching data from Supabase:', error);
@@ -1191,71 +1205,69 @@ return {
     const weekDays = getWeekDays();
     const emptyDayData = weekDays.map(day => ({ name: day.name, calls: 0 }));
     
-return {
-  pickupRate: 0,
-  successRate: 0,
-  transferRate: 0,
-  averageDuration: 0,
-  totalCalls: 0,
-  totalInbound: 0,
-  totalOutbound: 0,
-  voicemailRate: 0,
-  sentimentTrend: weekDays.map(day => ({
-    name: day.name,
-    positivo: 0,
-    neutral: 0,
-    negativo: 0
-  })),
-  callVolume: emptyDayData,
-  callDuration: emptyDayData.map(d => ({ name: d.name, duration: 0 })),
-  latency: emptyDayData.map(d => ({ name: d.name, latency: 0 })),
-  inboundOutbound: emptyDayData.map(d => ({ name: d.name, entrantes: 0, salientes: 0 })),
-  sentiment: [
-    { name: 'Positivo', value: 0, color: 'hsl(var(--success))' },
-    { name: 'Neutral', value: 0, color: 'hsl(var(--warning))' },
-    { name: 'Negativo', value: 0, color: 'hsl(var(--danger))' }
-  ],
-  agentPerformance: [],
-  failedMetrics: {
-    totalFailed: 0,
-    failedInbound: 0,
-    failedOutbound: 0,
-    failureRate: 0,
-    inboundFailureRate: 0,
-    outboundFailureRate: 0
-  },
-  costMetrics: {
-    totalCosto: 0,
-    costoPromedioPorLlamada: 0,
-    costoPorMinuto: 0,
-    costoPorTipo: {
-      inbound: 0,
-      outbound: 0
-    },
-    costoPorAgente: [],
-    costoPorDia: weekDays.map(day => ({ name: day.name, costo: 0 })),
-    costoPorPais: [],
-    desgloseCostos: {
-      totalRetell: 0,
-      totalLlamadas: 0,
-      porcentajeRetell: 0
-    }
-  },
-  disconnectMetrics: {
-    totalCalls: 0,
-    byCategory: {
-      ended: 0,
-      not_connected: 0,
-      error: 0
-    },
-    reasons: []
-  },
-  successByHour: [],
-  filters: filters
-};
+    return {
+      pickupRate: 0,
+      successRate: 0,
+      transferRate: 0,
+      averageDuration: 0,
+      totalCalls: 0,
+      totalInbound: 0,
+      totalOutbound: 0,
+      voicemailRate: 0,
+      sentimentTrend: weekDays.map(day => ({
+        name: day.name,
+        positivo: 0,
+        neutral: 0,
+        negativo: 0
+      })),
+      callVolume: emptyDayData,
+      callDuration: emptyDayData.map(d => ({ name: d.name, duration: 0 })),
+      latency: emptyDayData.map(d => ({ name: d.name, latency: 0 })),
+      inboundOutbound: emptyDayData.map(d => ({ name: d.name, entrantes: 0, salientes: 0 })),
+      sentiment: [
+        { name: 'Positivo', value: 0, color: 'hsl(var(--success))' },
+        { name: 'Neutral', value: 0, color: 'hsl(var(--warning))' },
+        { name: 'Negativo', value: 0, color: 'hsl(var(--danger))' }
+      ],
+      agentPerformance: [],
+      failedMetrics: {
+        totalFailed: 0,
+        failedInbound: 0,
+        failedOutbound: 0,
+        failureRate: 0,
+        inboundFailureRate: 0,
+        outboundFailureRate: 0
+      },
+      costMetrics: {
+        totalCosto: 0,
+        costoPromedioPorLlamada: 0,
+        costoPorMinuto: 0,
+        costoPorTipo: {
+          inbound: 0,
+          outbound: 0
+        },
+        costoPorAgente: [],
+        costoPorDia: weekDays.map(day => ({ name: day.name, costo: 0 })),
+        costoPorPais: [],
+        desgloseCostos: {
+          totalRetell: 0,
+          totalLlamadas: 0,
+          porcentajeRetell: 0
+        }
+      },
+      disconnectMetrics: {
+        totalCalls: 0,
+        byCategory: {
+          ended: 0,
+          not_connected: 0,
+          error: 0
+        },
+        reasons: []
+      },
+      successByHour: [],
+      filters: filters
+    };
   }
-
-  
 }
 
 export const useDashboardData = () => {
@@ -1270,8 +1282,12 @@ export const useDashboardData = () => {
     channel: 'all',
     country: 'all'
   });
+
+  // ✅ NUEVO: Obtener configuración del dashboard
+  const { getStatusLabel, getCallTypeLabel, getStatusColor, getCallTypeColor } = useDashboardConfig();
+
   const fetchAgents = async () => {
-    const supabase = useSupabase(); // ← Obtener aquí
+    const supabase = useSupabase();
     try {
       const { data: agentsData, error } = await supabase
         .from('agents')
@@ -1295,17 +1311,16 @@ export const useDashboardData = () => {
     setFilters(updatedFilters);
     setLoading(true);
     
-  try {
-    // Pasar supabase como parámetro
-    const newData = await fetchDataFromSupabase(supabase, updatedFilters);
-    setData(newData);
-  } catch (error) {
-    console.error('Error fetching data:', error);
-  } finally {
-    setLoading(false);
-  }
-};
-  
+    try {
+      // ✅ Ya pasa por el normalizador automáticamente en fetchDataFromSupabase
+      const newData = await fetchDataFromSupabase(supabase, updatedFilters);
+      setData(newData);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchAgents();

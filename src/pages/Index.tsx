@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // ← Agregar useEffect
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { FiltersSection } from "@/components/dashboard/FiltersSection";
 import { MetricCard } from "@/components/dashboard/MetricCard";
@@ -8,10 +8,12 @@ import { NavigationMenu } from "@/components/dashboard/NavigationMenu";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
+import { testNormalizer } from '../utils/test-normalizer'; // ← Esta importación está bien
 
 const Index = () => {
   const { data, agents, loading, filters, updateData } = useDashboardData();
   const [activeView, setActiveView] = useState<'dashboard' | 'call-table'>('dashboard');
+
 
   if (!data && loading) {
     return (
@@ -39,6 +41,7 @@ const Index = () => {
     );
   }
 
+  // ... el resto de tu código se mantiene igual
   // Calcular tendencias basadas en datos reales
   const calculateTrend = (currentRate: number, baseRate: number = 50) => {
     const difference = currentRate - baseRate;
