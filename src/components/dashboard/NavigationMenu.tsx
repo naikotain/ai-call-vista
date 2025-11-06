@@ -1,13 +1,12 @@
 // components/dashboard/NavigationMenu.tsx
 'use client';
 
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
 interface NavigationMenuProps {
-  activeView: 'dashboard' | 'call-table';
-  onViewChange: (view: 'dashboard' | 'call-table') => void;
+  activeView: 'dashboard' | 'call-table' | 'additional-data'; // ← AÑADIR 'additional-data'
+  onViewChange: (view: 'dashboard' | 'call-table' | 'additional-data') => void; // ← ACTUALIZAR
 }
 
 export const NavigationMenu = ({ activeView, onViewChange }: NavigationMenuProps) => {
@@ -27,6 +26,14 @@ export const NavigationMenu = ({ activeView, onViewChange }: NavigationMenuProps
           className="flex items-center gap-2"
         >
           📋 Tabla de Llamadas
+        </Button>
+        {/* NUEVO BOTÓN PARA DATOS ADICIONALES */}
+        <Button
+          variant={activeView === 'additional-data' ? 'default' : 'outline'}
+          onClick={() => onViewChange('additional-data')}
+          className="flex items-center gap-2"
+        >
+          📝 Datos Adicionales
         </Button>
       </div>
     </Card>

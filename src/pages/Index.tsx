@@ -1,19 +1,20 @@
-import { useState, useEffect } from 'react'; // ← Agregar useEffect
+import { useState, useEffect } from 'react';
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { FiltersSection } from "@/components/dashboard/FiltersSection";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
 import { CallsTable } from "@/components/calls/CallsTable";
 import { NavigationMenu } from "@/components/dashboard/NavigationMenu";
+import { OSDOPDataTable } from "@/components/additional-data/OSDOPDataTable"; // ← NUEVO IMPORT
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
-import { testNormalizer } from '../utils/test-normalizer'; // ← Esta importación está bien
+import { testNormalizer } from '../utils/test-normalizer';
 
 const Index = () => {
   const { data, agents, loading, filters, updateData } = useDashboardData();
-  const [activeView, setActiveView] = useState<'dashboard' | 'call-table'>('dashboard');
-
+  // ACTUALIZAR: Agregar 'additional-data' al estado
+  const [activeView, setActiveView] = useState<'dashboard' | 'call-table' | 'additional-data'>('dashboard');
 
   if (!data && loading) {
     return (
@@ -26,6 +27,7 @@ const Index = () => {
               <div className="flex space-x-2">
                 <Skeleton className="h-10 w-32" />
                 <Skeleton className="h-10 w-40" />
+                <Skeleton className="h-10 w-44" /> {/* ← NUEVO SKELETON */}
               </div>
             </CardContent>
           </Card>
@@ -41,7 +43,6 @@ const Index = () => {
     );
   }
 
-  // ... el resto de tu código se mantiene igual
   // Calcular tendencias basadas en datos reales
   const calculateTrend = (currentRate: number, baseRate: number = 50) => {
     const difference = currentRate - baseRate;
@@ -88,7 +89,7 @@ const Index = () => {
       <DashboardHeader />
       
       <div className="container mx-auto px-4 space-y-6">
-        {/* Menú de Navegación */}
+        {/* Menú de Navegación ACTUALIZADO */}
         <NavigationMenu 
           activeView={activeView} 
           onViewChange={setActiveView} 
@@ -157,6 +158,11 @@ const Index = () => {
         {/* Vista de Tabla de Llamadas */}
         {activeView === 'call-table' && (
           <CallsTable filters={filters} />
+        )}
+
+        {/* NUEVA VISTA: Datos Adicionales */}
+        {activeView === 'additional-data' && (
+          <OSDOPDataTable />
         )}
       </div>
     </div>
