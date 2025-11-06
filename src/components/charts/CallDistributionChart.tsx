@@ -6,44 +6,38 @@ export const CallDistributionChart = () => {
   const { data, loading } = useDashboardData();
 
   if (loading || !data) {
-    return (
-      <div className="h-80 w-full flex items-center justify-center border rounded-lg">
-        <Skeleton className="h-full w-full" />
-      </div>
-    );
+    return <Skeleton className="h-80 w-full" />;
   }
 
-  // Calcular distribución real desde los datos
+  // ✅ CALCULAR DISTRIBUCIÓN BASADA EN DATOS REALES DISPONIBLES
   const calculateDistribution = () => {
     if (!data.totalCalls || data.totalCalls === 0) {
       return [];
     }
 
-    const statusDistribution = {
-      successful: { name: 'Exitosas', value: 0, color: 'hsl(var(--success))' },
-      failed: { name: 'Fallidas', value: 0, color: 'hsl(var(--danger))' },
-      transferred: { name: 'Transferidas', value: 0, color: 'hsl(var(--warning))' },
-      voicemail: { name: 'Buzón de voz', value: 0, color: 'hsl(var(--info))' },
-      ended: { name: 'Finalizadas', value: 0, color: 'hsl(var(--secondary))' }
-    };
+    const distribution = [
+      { 
+        name: 'Exitosas', 
+        value: Math.round((data.successRate / 100) * data.totalCalls),
+        color: 'hsl(var(--success))' 
+      },
+      { 
+        name: 'Fallidas', 
+        value: data.failedMetrics?.totalFailed || 0,
+        color: 'hsl(var(--danger))' 
+      }
+    ];
 
-    // Usar los datos reales del dashboard
-    if (data.totalCalls > 0) {
-      // Calcular basado en las métricas existentes
-      statusDistribution.successful.value = Math.round((data.successRate / 100) * data.totalCalls);
-      statusDistribution.failed.value = data.failedMetrics?.totalFailed || 0;
-      
-      // Para transferred y voicemail, necesitamos calcular desde los datos brutos
-      // Por ahora usamos estimaciones basadas en porcentajes típicos
-      statusDistribution.transferred.value = Math.round(data.totalCalls * 0.08); // 8% típico
-      statusDistribution.voicemail.value = Math.round(data.totalCalls * 0.05); // 5% típico
-      
-      // El resto se considera "ended"
-      const calculatedTotal = Object.values(statusDistribution).reduce((sum, status) => sum + status.value, 0);
-      statusDistribution.ended.value = Math.max(0, data.totalCalls - calculatedTotal);
-    }
+    // ✅ DEBUG DE LO QUE SE ESTÁ CALCULANDO
+    console.log('🔍 DISTRIBUCIÓN CALCULADA:', {
+      totalCalls: data.totalCalls,
+      successRate: data.successRate,
+      successfulCalls: Math.round((data.successRate / 100) * data.totalCalls),
+      failedCalls: data.failedMetrics?.totalFailed || 0,
+      distribution
+    });
 
-    return Object.values(statusDistribution).filter(status => status.value > 0);
+    return distribution.filter(item => item.value > 0);
   };
 
   const distributionData = calculateDistribution();
@@ -53,7 +47,6 @@ export const CallDistributionChart = () => {
       <div className="h-80 w-full flex items-center justify-center border rounded-lg">
         <div className="text-center text-muted-foreground">
           <p>No hay datos de distribución disponibles</p>
-          <p className="text-sm">Los datos se mostrarán cuando haya llamadas registradas</p>
         </div>
       </div>
     );
@@ -78,7 +71,7 @@ export const CallDistributionChart = () => {
             outerRadius={100}
             paddingAngle={2}
             dataKey="value"
-            label={({ name, value, percentage }) => 
+            label={({ name, value }) => 
               `${name}: ${value} (${((value / totalCalls) * 100).toFixed(1)}%)`
             }
             labelLine={false}
@@ -88,22 +81,12 @@ export const CallDistributionChart = () => {
             ))}
           </Pie>
           <Tooltip 
-            contentStyle={{ 
-              backgroundColor: 'hsl(var(--card))',
-              border: '1px solid hsl(var(--border))',
-              borderRadius: '8px'
-            }}
-            formatter={(value: number, name: string, props: any) => {
+            formatter={(value: number) => {
               const percentage = ((value / totalCalls) * 100).toFixed(1);
-              return [`${value} llamadas (${percentage}%)`, props.payload.name];
+              return [`${value} llamadas (${percentage}%)`];
             }}
           />
-          <Legend 
-            formatter={(value, entry: any) => {
-              const percentage = ((entry.payload.value / totalCalls) * 100).toFixed(1);
-              return `${value} (${percentage}%)`;
-            }}
-          />
+          <Legend />
         </PieChart>
       </ResponsiveContainer>
     </div>

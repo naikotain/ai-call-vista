@@ -3,6 +3,7 @@ import { NormalizedCall, InternalStatus, CallType, Sentiment } from '../types/no
 
 export class DataNormalizer {
   static normalizeCallData(rawData: any, clientId: string, allRawData?: any[]): NormalizedCall {
+
     // ✅ Obtener mapeo con detección automática si es necesario
     const fieldMap = getFieldMapping(clientId, allRawData);
     const valueMap = getValueMapping(clientId);
@@ -16,6 +17,12 @@ export class DataNormalizer {
     const normalizedStatus = this.normalizeStatus(rawStatus, valueMap.status);
     const normalizedCallType = this.normalizeCallType(rawCallType, valueMap.call_type);
     const normalizedSentiment = this.normalizeSentiment(rawSentiment, valueMap.sentiment);
+
+   // console.log('🔍 NORMALIZACIÓN STATUS:', {
+   // rawStatus,
+   // normalizedStatus: this.normalizeValue(rawStatus, valueMap.status, 'failed'),
+   // valueMapping: valueMap.status
+    // });
     
     return {
       // Campos principales con tipos específicos
@@ -52,6 +59,22 @@ export class DataNormalizer {
       _raw: process.env.NODE_ENV === 'development' ? rawData : undefined,
       _client: clientId
     };
+
+    console.log('🔍 VERIFICACIÓN FINAL NORMALIZACIÓN:', {
+      entrada: {
+            status: rawData[fieldMap.status],
+            call_type: rawData[fieldMap.call_type],
+            duration: rawData[fieldMap.duration],
+            cost: rawData[fieldMap.cost]
+          },
+          salida: {
+            status: normalizedStatus,
+            call_type: normalizedCallType, 
+            duration: this.parseNumber(rawData[fieldMap.duration]),
+            cost: this.parseNumber(rawData[fieldMap.cost])
+          }
+    });
+
   }
   
   // Normalizar un array completo de llamadas
@@ -108,22 +131,36 @@ export class DataNormalizer {
   }
   
   private static parseNumber(value: any): number {
-    if (value === null || value === undefined) return 0;
+  if (value === null || value === undefined) return 0;
+  
+
+  
+  // Manejar formato "1m 30s"
+  if (typeof value === 'string' && (value.includes('m') || value.includes('s'))) {
+    const minutesMatch = value.match(/(\d+)m/);
+    const secondsMatch = value.match(/(\d+)s/);
     
-    // Manejar formato "1m 30s"
-    if (typeof value === 'string' && (value.includes('m') || value.includes('s'))) {
-      const minutesMatch = value.match(/(\d+)m/);
-      const secondsMatch = value.match(/(\d+)s/);
-      
-      const minutes = minutesMatch ? parseInt(minutesMatch[1]) : 0;
-      const seconds = secondsMatch ? parseInt(secondsMatch[1]) : 0;
-      
-      return (minutes * 60) + seconds;
-    }
+    const minutes = minutesMatch ? parseInt(minutesMatch[1]) : 0;
+    const seconds = secondsMatch ? parseInt(secondsMatch[1]) : 0;
     
-    const num = typeof value === 'string' ? parseFloat(value) : Number(value);
-    return isNaN(num) ? 0 : num;
+    const resultado = (minutes * 60) + seconds;
+
+    return resultado;
   }
+  
+  // ✅ AGREGAR MANEJO DE FORMATO "MM:SS" (como "0:21")
+  if (typeof value === 'string' && /^\d+:\d{1,2}$/.test(value)) {
+    const [minutes, seconds] = value.split(':').map(Number);
+    const resultado = (minutes * 60) + seconds;
+
+    return resultado;
+  }
+  
+  const num = typeof value === 'string' ? parseFloat(value) : Number(value);
+  const resultado = isNaN(num) ? 0 : num;
+
+  return resultado;
+}
   
 // Método para debug - CORREGIDO
 static inspectDataFields(rawData: any[], clientId: string): void {
@@ -171,6 +208,5 @@ static debugNormalization(rawData: any, clientId: string) {
   });
 }
 
-
-  
+ 
 }

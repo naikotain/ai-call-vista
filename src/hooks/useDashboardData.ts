@@ -105,22 +105,10 @@ export interface DashboardData {
   filters: DashboardFilters;
 }
 
-// FUNCIÓN PARA CONVERTIR "1m 54s" A SEGUNDOS
-const parseDurationToSeconds = (durationStr: string | null): number => {
-  if (!durationStr) return 0;
-  
-  const minutesMatch = durationStr.match(/(\d+)m/);
-  const secondsMatch = durationStr.match(/(\d+)s/);
-  
-  const minutes = minutesMatch ? parseInt(minutesMatch[1]) : 0;
-  const seconds = secondsMatch ? parseInt(secondsMatch[1]) : 0;
-  
-  return (minutes * 60) + seconds;
-};
 
-// Función para manejar diferentes formatos de duración
-// Función para manejar diferentes formatos de duración - ACTUALIZADA
+// En useDashboardData.ts - FUNCIÓN COMPLETA CORREGIDA
 const parseDuration = (durationInput: string | number | null): number => {
+
   if (!durationInput) return 0;
   
   // Si ya es un número, devolverlo directamente
@@ -128,21 +116,47 @@ const parseDuration = (durationInput: string | number | null): number => {
     return durationInput;
   }
   
-  // Si es string, procesarlo como antes
-  if (/^\d+$/.test(durationInput)) {
-    return parseInt(durationInput);
+  const durationStr = String(durationInput).trim();
+  
+
+  
+  // ✅ FORMATO "MM:SS" (como "0:21", "1:47")
+  if (/^\d+:\d{1,2}$/.test(durationStr)) {
+    const [minutes, seconds] = durationStr.split(':').map(Number);
+    const result = (minutes * 60) + seconds;
+   
+    return result;
   }
   
-  if (durationInput.includes('m') || durationInput.includes('s')) {
-    return parseDurationToSeconds(durationInput);
+  // ✅ FORMATO "Xm Ys" (como "5m 3s", "0m 21s")
+  if (durationStr.includes('m') || durationStr.includes('s')) {
+    return parseDurationToSeconds(durationStr);
   }
   
-  if (/^\d+:\d+$/.test(durationInput)) {
-    const [minutes, seconds] = durationInput.split(':').map(Number);
-    return (minutes * 60) + seconds;
+  // ✅ Solo números (segundos directos)
+  if (/^\d+$/.test(durationStr)) {
+    return parseInt(durationStr);
   }
   
+  console.log('   → Formato no reconocido, retornando 0');
   return 0;
+};
+
+// Función auxiliar mejorada
+const parseDurationToSeconds = (durationStr: string | null): number => {
+  if (!durationStr) return 0;
+  
+  console.log('🔍 PARSE DURATION TO SECONDS:', { input: durationStr });
+  
+  const minutesMatch = durationStr.match(/(\d+)m/);
+  const secondsMatch = durationStr.match(/(\d+)s/);
+  
+  const minutes = minutesMatch ? parseInt(minutesMatch[1]) : 0;
+  const seconds = secondsMatch ? parseInt(secondsMatch[1]) : 0;
+  
+  const result = (minutes * 60) + seconds;
+
+  return result;
 };
 
 // Helper functions para categorizar las razones
@@ -847,6 +861,7 @@ export interface DashboardFilters {
 async function fetchDataFromSupabase(
   supabase: any,
   filters: DashboardFilters
+  
 ): Promise<DashboardData> {
   try {
     let query = supabase
@@ -858,9 +873,7 @@ async function fetchDataFromSupabase(
       query = query.eq('api', filters.agent);
     }
 
-    if (filters.status !== 'all') {
-      query = query.eq('status', filters.status);
-    }
+
 
     if (filters.callType !== 'all') {
       query = query.eq('tipo_de_llamada', filters.callType);
@@ -910,25 +923,81 @@ async function fetchDataFromSupabase(
     const clientId = getCurrentClient();
     const normalizedCalls = DataNormalizer.normalizeCallsData(rawCalls || [], clientId);
 
+        let filteredCalls = normalizedCalls;
+    
+    if (filters.status !== 'all') {
+      console.log('🔍 APLICANDO FILTRO STATUS NORMALIZADO:', {
+        filtro: filters.status,
+        llamadasAntes: filteredCalls.length,
+        llamadasDespues: filteredCalls.filter(call => call.status === filters.status).length,
+        valoresDisponibles: [...new Set(filteredCalls.map(call => call.status))]
+      });
+      
+      filteredCalls = filteredCalls.filter(call => call.status === filters.status);
+    }
+
+    // ✅ USAR LOS DATOS FILTRADOS
+
+
 
     // ✅ VERIFICACIÓN DEL SISTEMA DE NORMALIZACIÓN - EN EL LUGAR CORRECTO
     const fieldMap = getFieldMapping(clientId); // Obtener fieldMap aquí
-    console.log('🎯 SISTEMA DE NORMALIZACIÓN - VERIFICACIÓN:', {
-      cliente: clientId,
-      llamadasRaw: rawCalls?.length || 0,
-      llamadasNormalizadas: normalizedCalls.length,
-      camposMapeados: Object.keys(fieldMap).length,
-      muestraNormalizacion: normalizedCalls.slice(0, 2).map(call => ({
-        status: { raw: call._raw?.status, normalizado: call.status },
-        call_type: { raw: call._raw?.tipo_de_llamada, normalizado: call.call_type },
-        duration: { raw: call._raw?.duration, normalizado: call.duration, tipo: typeof call.duration },
-        cost: { raw: call._raw?.retell_cost, normalizado: call.cost }
-      }))
-    });
-    
+      console.log('🎯 SISTEMA DE NORMALIZACIÓN - VERIFICACIÓN:', {
+        cliente: clientId,
+        llamadasRaw: rawCalls?.length || 0,
+        llamadasNormalizadas: normalizedCalls.length,
+        camposMapeados: Object.keys(fieldMap).length,
+        muestraNormalizacion: normalizedCalls.slice(0, 2).map(call => ({
+          // ✅ USAR LOS DATOS REALES EN LUGAR DE _raw
+          call_type: { 
+            raw: call._raw?.tipo_de_llamada,  // ← Campo específico
+            normalizado: call.call_type 
+          },
+          cost: { 
+            raw: call._raw?.retell_cost,      // ← Campo específico  
+            normalizado: call.cost 
+          },
+          duration: { 
+            raw: call._raw?.duration,         // ← Campo específico
+            normalizado: call.duration, 
+            tipo: typeof call.duration 
+          },
+          status: { 
+            raw: call._raw?.status,           // ← Campo específico
+            normalizado: call.status 
+          }
+        }))
+      });
+// En fetchDataFromSupabase, JUSTO DESPUÉS de obtener rawCalls:
+      console.log('🔍 INVESTIGACIÓN COMPLETA VALORES STATUS:', {
+        // 1. Ver TODOS los valores únicos que existen
+        todosLosValoresUnicos: [...new Set(rawCalls?.map(call => call.status))],
+        
+        // 2. Conteo detallado de CADA valor
+        conteoDetallado: rawCalls?.reduce((acc, call) => {
+          acc[call.status] = (acc[call.status] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>),
+        
+        // 3. Ver valores que podrían ser "transfer" o "voicemail"
+        valoresConTransfer: rawCalls?.filter(call => 
+          call.status.toLowerCase().includes('transfer')
+        ).map(call => call.status),
+        
+        valoresConVoicemail: rawCalls?.filter(call => 
+          call.status.toLowerCase().includes('voice') || 
+          call.status.toLowerCase().includes('mail') ||
+          call.status.toLowerCase().includes('buzon')
+        ).map(call => call.status),
+        
+        // 4. Ver valores "raros" o diferentes
+        valoresNoStandard: rawCalls?.filter(call => 
+          !['ended', 'error', 'successful', 'failed'].includes(call.status.toLowerCase())
+        ).map(call => call.status)
+      });
 
     // ✅ CONTINUAR CON LOS DATOS NORMALIZADOS
-    const calls = normalizedCalls;
+    const calls = filteredCalls;
 
     // Fetch agents for agent performance
     const { data: agents, error: agentsError } = await supabase
@@ -939,6 +1008,12 @@ async function fetchDataFromSupabase(
       console.error('Error fetching agents:', agentsError);
       throw agentsError;
     }
+    console.log('🔍 DEBUG APLICACIÓN FILTROS:', {
+      filtroStatus: filters.status,
+      llamadasFiltradas: calls?.filter(call => call.status === filters.status).length,
+      totalLlamadas: calls?.length,
+      valoresStatusUnicos: [...new Set(calls?.map(call => call.status))]
+    });
 
     // ✅ MÉTRICAS PRINCIPALES CORREGIDAS
     const totalCalls = calls?.length || 0;
@@ -1306,6 +1381,11 @@ export const useDashboardData = () => {
   };
 
   const updateData = async (newFilters: Partial<DashboardFilters>) => {
+      console.log('🔍 DEBUG FILTROS:', {
+        filtrosAnteriores: filters,
+        nuevosFiltros: newFilters,
+        filtrosCombinados: { ...filters, ...newFilters }
+      });
     const supabase = useSupabase();
     const updatedFilters = { ...filters, ...newFilters };
     setFilters(updatedFilters);

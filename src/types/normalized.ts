@@ -27,6 +27,7 @@ export interface NormalizedCall {
   numero_agente?: string;
   latency?: number;
   
+  
   // Campos legacy (para compatibilidad)
   call_status?: string;
   call_successful?: boolean | string;
