@@ -1,12 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react'; // ✅ AGREGAR useCallback
 import { useSupabase } from '@/integrations/supabase/multi-client';
 import { Database } from '@/integrations/supabase/types';
 import { COUNTRY_COSTS, calculateCallCost, getCountryCost } from '@/config/countryCosts';
 
-// ✅ NUEVOS IMPORTS PARA NORMALIZACIÓN
+// ✅ NUEVOS IMPORTS PARA NORMALIZACIÓN Y RELACIÓN
 import { useDashboardConfig } from '@/hooks/useDashboardConfig';
 import { DataNormalizer } from '@/services/data-normalizer';
-import { NormalizedCall } from '@/types/normalized';
+import { DataRelationService } from '@/services/data-relation-service'; // ✅ NUEVO
+import { 
+  NormalizedCall, 
+  AdditionalClientData,
+  CallWithAdditionalData,
+  AdditionalDataWithCall 
+} from '@/types/normalized';
 import { getFieldMapping } from '@/config/field-mappings';
 
 // Usar el tipo normalizado en lugar del raw de Supabase
@@ -1357,11 +1363,15 @@ export const useDashboardData = () => {
     channel: 'all',
     country: 'all'
   });
+ // ✅ NUEVOS ESTADOS PARA DATOS RELACIONADOS
+  const [callsWithAdditionalData, setCallsWithAdditionalData] = useState<CallWithAdditionalData[]>([]);
+  const [additionalDataWithCalls, setAdditionalDataWithCalls] = useState<AdditionalDataWithCall[]>([]);
+  const [relationshipStats, setRelationshipStats] = useState<any>(null);
 
   // ✅ NUEVO: Obtener configuración del dashboard
   const { getStatusLabel, getCallTypeLabel, getStatusColor, getCallTypeColor } = useDashboardConfig();
 
-  const fetchAgents = async () => {
+    const fetchAgents = async () => {
     const supabase = useSupabase();
     try {
       const { data: agentsData, error } = await supabase
@@ -1380,12 +1390,65 @@ export const useDashboardData = () => {
     }
   };
 
+  // ✅ NUEVA FUNCIÓN: Obtener datos relacionados
+  const fetchCallsWithAdditionalData = useCallback(async () => {
+    const clientId = getCurrentClient();
+    if (!clientId) return;
+    
+    try {
+      console.log('🔄 [useDashboardData] Obteniendo datos relacionados...');
+      const relatedData = await DataRelationService.getCallsWithAdditionalData(clientId);
+      setCallsWithAdditionalData(relatedData);
+      
+      // Métricas de relación para debugging
+      const withAdditional = relatedData.filter(call => call.additional_data).length;
+      console.log(`📈 [useDashboardData] Relación completada: ${withAdditional}/${relatedData.length} llamadas tienen datos adicionales`);
+      
+    } catch (error) {
+      console.error('❌ [useDashboardData] Error fetching related data:', error);
+      setCallsWithAdditionalData([]);
+    }
+  }, []);
+
+  // ✅ NUEVA FUNCIÓN: Para la pestaña de datos adicionales
+  const fetchAdditionalDataWithCalls = useCallback(async () => {
+    const clientId = getCurrentClient();
+    if (!clientId) return;
+    
+    try {
+      console.log('🔄 [useDashboardData] Obteniendo datos adicionales con llamadas...');
+      const additionalWithCalls = await DataRelationService.getAdditionalDataWithCalls(clientId);
+      setAdditionalDataWithCalls(additionalWithCalls);
+      
+      console.log(`📊 [useDashboardData] Datos adicionales con llamadas: ${additionalWithCalls.length} registros`);
+    } catch (error) {
+      console.error('❌ [useDashboardData] Error fetching additional data with calls:', error);
+      setAdditionalDataWithCalls([]);
+    }
+  }, []);
+
+  // ✅ NUEVA FUNCIÓN: Obtener estadísticas de relación
+  const fetchRelationshipStats = useCallback(async () => {
+    const clientId = getCurrentClient();
+    if (!clientId) return;
+    
+    try {
+      const stats = await DataRelationService.getRelationshipStats(clientId);
+      setRelationshipStats(stats);
+      console.log('📊 [useDashboardData] Estadísticas de relación:', stats);
+    } catch (error) {
+      console.error('❌ [useDashboardData] Error fetching relationship stats:', error);
+      setRelationshipStats(null);
+    }
+  }, []);
+
   const updateData = async (newFilters: Partial<DashboardFilters>) => {
-      console.log('🔍 DEBUG FILTROS:', {
-        filtrosAnteriores: filters,
-        nuevosFiltros: newFilters,
-        filtrosCombinados: { ...filters, ...newFilters }
-      });
+    console.log('🔍 DEBUG FILTROS:', {
+      filtrosAnteriores: filters,
+      nuevosFiltros: newFilters,
+      filtrosCombinados: { ...filters, ...newFilters }
+    });
+    
     const supabase = useSupabase();
     const updatedFilters = { ...filters, ...newFilters };
     setFilters(updatedFilters);
@@ -1395,6 +1458,14 @@ export const useDashboardData = () => {
       // ✅ Ya pasa por el normalizador automáticamente en fetchDataFromSupabase
       const newData = await fetchDataFromSupabase(supabase, updatedFilters);
       setData(newData);
+      
+      // ✅ ACTUALIZAR DATOS RELACIONADOS EN PARALELO
+      await Promise.all([
+        fetchCallsWithAdditionalData(),
+        fetchAdditionalDataWithCalls(),
+        fetchRelationshipStats()
+      ]);
+      
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -1413,5 +1484,12 @@ export const useDashboardData = () => {
     loading,
     filters,
     updateData,
+    // ✅ NUEVOS VALORES PARA LA RELACIÓN DE DATOS
+    callsWithAdditionalData,
+    additionalDataWithCalls,
+    relationshipStats,
+    fetchCallsWithAdditionalData,
+    fetchAdditionalDataWithCalls,
+    fetchRelationshipStats
   };
 };

@@ -27,6 +27,8 @@ export interface NormalizedCall {
   numero_agente?: string;
   latency?: number;
   
+  // NUEVO CAMPO PARA RELACIÓN
+  call_id_retell?: string;
   
   // Campos legacy (para compatibilidad)
   call_status?: string;
@@ -41,6 +43,45 @@ export interface NormalizedCall {
   _client?: string;
 }
 
+// Tipo para datos adicionales del cliente
+export interface AdditionalClientData {
+  id: string;
+  created_at: string;
+  call_id?: string; // FK a calls (legacy)
+  call_id_retell?: string; // ✅ NUEVO CAMPO PARA RELACIÓN
+  client_id: string;
+  
+  // Campos fijos para OSDOP
+  nombre?: string;
+  segundo_nombre?: string;
+  telefono?: string;
+  numero_afiliado?: string;
+  motivo_consulta?: string;
+  tipo_tramite?: string;
+  localidad?: string;
+  fecha?: string;
+  especialidad?: string;
+  nombre_prestador?: string;
+  estado_tramite?: string;
+  horario_actual?: string;
+  canal_contacto?: string;
+  detalle_reclamo?: string;
+  
+  // Campos flexibles para otros clientes
+  custom_fields?: Record<string, any>;
+  data_source?: string;
+  is_visible?: boolean;
+}
+
+// Tipos para datos relacionados
+export interface CallWithAdditionalData extends NormalizedCall {
+  additional_data: AdditionalClientData | null;
+}
+
+export interface AdditionalDataWithCall extends AdditionalClientData {
+  call_data: NormalizedCall | null;
+}
+
 // Tipo guard para verificar datos normalizados
 export const isNormalizedCall = (data: any): data is NormalizedCall => {
   return data && 
@@ -49,5 +90,9 @@ export const isNormalizedCall = (data: any): data is NormalizedCall => {
          typeof data.duration === 'number';
 };
 
-// ❌ ELIMINAR ESTA LÍNEA - YA SE EXPORTARON ARRIBA
-// export type { InternalStatus, CallType, Sentiment };
+// Tipo guard para datos adicionales
+export const isAdditionalClientData = (data: any): data is AdditionalClientData => {
+  return data && 
+         typeof data.id === 'string' && 
+         typeof data.client_id === 'string';
+};

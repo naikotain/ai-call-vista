@@ -6,7 +6,7 @@ export const CLIENT_CONFIGS = {
     tables: {
       calls: 'calls',
       agents: 'agents',
-      additional_data: 'additional_client_data' // ← AÑADIR ESTO
+      additional_data: 'additional_client_data'
     }
   },
   'cliente2': {

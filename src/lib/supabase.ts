@@ -1,30 +1,40 @@
-import { createClient } from '@supabase/supabase-js'
+// src/lib/supabase.ts - VERSIÓN MULTI-CLIENTE
+import { createClient } from '@supabase/supabase-js';
+import { CLIENT_CONFIGS, DEFAULT_CLIENT } from '../config/clients';
 
-// Obtener las variables de entorno
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+/**
+ * Obtiene el cliente Supabase DINÁMICO basado en el cliente actual
+ */
+export const getSupabaseClient = (clientId?: string) => {
+  const actualClientId = clientId || getCurrentClientId();
+  const config = CLIENT_CONFIGS[actualClientId as keyof typeof CLIENT_CONFIGS];
+  
+  if (!config) {
+    throw new Error(`Configuración no encontrada para cliente: ${actualClientId}`);
+  }
 
-// 🔍 LOGS DE DEBUG - VERIFICAR CONEXIÓN
-console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-console.log('🔗 SUPABASE CONNECTION CHECK:');
-console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-console.log('URL:', supabaseUrl);
-console.log('Key (primeros 30 chars):', supabaseAnonKey?.substring(0, 30) + '...');
-console.log('Expected URL:', 'https://vbufiofpxvduoekqbsfu.supabase.co');
-console.log('¿Es el correcto?:', supabaseUrl === 'https://vbufiofpxvduoekqbsfu.supabase.co' ? '✅ SÍ' : '❌ NO');
-console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(`🔗 [getSupabaseClient] Conectando a ${actualClientId}: ${config.supabaseUrl}`);
+  
+  return createClient(config.supabaseUrl, config.supabaseKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    }
+  });
+};
 
-// Verificar que las variables existan
-if (!supabaseUrl) {
-  throw new Error('Missing environment variable: VITE_SUPABASE_URL');
-}
+/**
+ * Obtiene el clientId actual desde la URL
+ */
+export const getCurrentClientId = (): string => {
+  if (typeof window === 'undefined') return DEFAULT_CLIENT;
+  
+  const urlParams = new URLSearchParams(window.location.search);
+  const clientId = urlParams.get('client') || DEFAULT_CLIENT;
+  
+  console.log(`🎯 [getCurrentClientId] Cliente detectado: ${clientId}`);
+  return clientId;
+};
 
-if (!supabaseAnonKey) {
-  throw new Error('Missing environment variable: VITE_SUPABASE_ANON_KEY');
-}
-
-// Crear y exportar el cliente de Supabase
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-// Log para verificación (opcional)
-console.log('✅ Supabase configurado correctamente');
+// Cliente por defecto para compatibilidad (usa DEFAULT_CLIENT)
+export const supabase = getSupabaseClient();
