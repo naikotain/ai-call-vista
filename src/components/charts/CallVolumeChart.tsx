@@ -1,11 +1,13 @@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
+import { log } from '@/utils/simple-logger';
 
 interface CallVolumeChartProps {
   data: Array<{ name: string; calls: number }>;
 }
 
 export const CallVolumeChart = ({ data }: CallVolumeChartProps) => {
-  console.log('📊 CallVolumeChart data:', data);
+
+  
   return (
     <div className="h-80 w-full">
       <ResponsiveContainer width="100%" height="100%">

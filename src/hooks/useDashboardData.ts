@@ -1,12 +1,12 @@
-import { useState, useEffect, useCallback } from 'react'; // ✅ AGREGAR useCallback
+import { useState, useEffect, useCallback } from 'react';
 import { useSupabase } from '@/integrations/supabase/multi-client';
 import { Database } from '@/integrations/supabase/types';
 import { COUNTRY_COSTS, calculateCallCost, getCountryCost } from '@/config/countryCosts';
 
-// ✅ NUEVOS IMPORTS PARA NORMALIZACIÓN Y RELACIÓN
+// Imports para normalización y relación
 import { useDashboardConfig } from '@/hooks/useDashboardConfig';
 import { DataNormalizer } from '@/services/data-normalizer';
-import { DataRelationService } from '@/services/data-relation-service'; // ✅ NUEVO
+import { DataRelationService } from '@/services/data-relation-service';
 import { 
   NormalizedCall, 
   AdditionalClientData,
@@ -15,7 +15,10 @@ import {
 } from '@/types/normalized';
 import { getFieldMapping } from '@/config/field-mappings';
 
-// Usar el tipo normalizado en lugar del raw de Supabase
+// Logger centralizado
+import { log } from '@/utils/simple-logger';
+
+// Usar el tipo normalizado
 type Call = NormalizedCall;
 
 export interface DisconnectionReason {
@@ -111,10 +114,8 @@ export interface DashboardData {
   filters: DashboardFilters;
 }
 
-
-// En useDashboardData.ts - FUNCIÓN COMPLETA CORREGIDA
+// Función para parsear duración de llamadas
 const parseDuration = (durationInput: string | number | null): number => {
-
   if (!durationInput) return 0;
   
   // Si ya es un número, devolverlo directamente
@@ -124,35 +125,29 @@ const parseDuration = (durationInput: string | number | null): number => {
   
   const durationStr = String(durationInput).trim();
   
-
-  
-  // ✅ FORMATO "MM:SS" (como "0:21", "1:47")
+  // FORMATO "MM:SS" (como "0:21", "1:47")
   if (/^\d+:\d{1,2}$/.test(durationStr)) {
     const [minutes, seconds] = durationStr.split(':').map(Number);
-    const result = (minutes * 60) + seconds;
-   
-    return result;
+    return (minutes * 60) + seconds;
   }
   
-  // ✅ FORMATO "Xm Ys" (como "5m 3s", "0m 21s")
+  // FORMATO "Xm Ys" (como "5m 3s", "0m 21s")
   if (durationStr.includes('m') || durationStr.includes('s')) {
     return parseDurationToSeconds(durationStr);
   }
   
-  // ✅ Solo números (segundos directos)
+  // Solo números (segundos directos)
   if (/^\d+$/.test(durationStr)) {
     return parseInt(durationStr);
   }
   
-  console.log('   → Formato no reconocido, retornando 0');
+  log.dev('Formato de duración no reconocido', { input: durationStr });
   return 0;
 };
 
-// Función auxiliar mejorada
+// Función auxiliar para parsear duración
 const parseDurationToSeconds = (durationStr: string | null): number => {
   if (!durationStr) return 0;
-  
-  console.log('🔍 PARSE DURATION TO SECONDS:', { input: durationStr });
   
   const minutesMatch = durationStr.match(/(\d+)m/);
   const secondsMatch = durationStr.match(/(\d+)s/);
@@ -160,12 +155,10 @@ const parseDurationToSeconds = (durationStr: string | null): number => {
   const minutes = minutesMatch ? parseInt(minutesMatch[1]) : 0;
   const seconds = secondsMatch ? parseInt(secondsMatch[1]) : 0;
   
-  const result = (minutes * 60) + seconds;
-
-  return result;
+  return (minutes * 60) + seconds;
 };
 
-// Helper functions para categorizar las razones
+// Helper functions para categorizar las razones de desconexión
 const categorizeDisconnectReason = (reason: string): 'ended' | 'not_connected' | 'error' => {
   const endedReasons = ['user_hangup', 'agent_hangup', 'voicemail_reached', 'inactivity', 'max_duration_reached'];
   const notConnectedReasons = ['dial_busy', 'dial_failed', 'dial_no_answer', 'invalid_destination', 
@@ -203,15 +196,6 @@ export const formatDuration = (minutes: number): string => {
   return `${mins} min ${segs} seg`;
 };
 
-// Alternativa formato MM:SS
-export const formatDurationMMSS = (minutes: number): string => {
-  const totalSeconds = Math.round(minutes * 60);
-  const mins = Math.floor(totalSeconds / 60);
-  const segs = totalSeconds % 60;
-  
-  return `${mins}:${segs.toString().padStart(2, '0')}`;
-};
-
 // Función para obtener el cliente actual de la URL
 function getCurrentClient(): string {
   if (typeof window === 'undefined') return 'cliente1';
@@ -219,19 +203,18 @@ function getCurrentClient(): string {
   const urlParams = new URLSearchParams(window.location.search);
   const client = urlParams.get('client');
   
-  // Validar cliente o usar default
   const validClients = ['cliente1', 'cliente2'];
   return validClients.includes(client || '') ? client! : 'cliente1';
 }
 
+// Función para calcular éxito por hora
 const calculateSuccessByHour = (calls: Call[]): Array<{
   hour: string;
   successRate: number;
   totalCalls: number;
   successfulCalls: number;
 }> => {
-  
-  console.log('🔍 calculateSuccessByHour - Llamadas recibidas:', calls?.length);
+  log.dev('Calculando éxito por hora', { llamadasRecibidas: calls?.length });
   
   const hoursData: Record<number, { total: number; successful: number }> = {};
   
@@ -252,14 +235,6 @@ const calculateSuccessByHour = (calls: Call[]): Array<{
     }
   });
 
-  // ✅ DEBUG DETALLADO ANTES DE FILTRAR
-  console.log('📊 ANTES de filtrar - Distribución por hora:');
-  Object.entries(hoursData).forEach(([hour, data]) => {
-    if (data.total > 0) {
-      console.log(`  Hora ${hour}:00 - ${data.total} llamadas, ${data.successful} exitosas`);
-    }
-  });
-
   const allHours = Object.entries(hoursData)
     .map(([hour, data]) => {
       const hourNum = parseInt(hour);
@@ -274,19 +249,17 @@ const calculateSuccessByHour = (calls: Call[]): Array<{
     });
 
   const filteredHours = allHours.filter(item => item.totalCalls > 0);
-
-  // ✅ DEBUG DETALLADO DESPUÉS DE FILTRAR
-  console.log('🎯 DESPUÉS de filtrar:');
-  console.log('  - Total horas antes de filtrar:', allHours.length);
-  console.log('  - Total horas después de filtrar:', filteredHours.length);
-  console.log('  - Horas con datos:', filteredHours.map(h => h.hour));
-
   const result = filteredHours.sort((a, b) => parseInt(a.hour) - parseInt(b.hour));
+  
+  log.dev('Cálculo de éxito por hora completado', {
+    horasConDatos: filteredHours.length,
+    totalHoras: result.length
+  });
   
   return result;
 };
 
-// ✅ NUEVAS FUNCIONES DE AGRUPAMIENTO SEGÚN FILTRO
+// Funciones de agrupamiento según filtro de tiempo
 const getCallVolumeData = (calls: Call[], timeRange: string) => {
   switch (timeRange) {
     case 'today':
@@ -313,7 +286,6 @@ const getCallVolumeByDayOfWeekAllTime = (calls: Call[]) => {
   }));
 };
 
-// Agrupar por hora (para "hoy")
 const getCallVolumeByHour = (calls: Call[]) => {
   const hoursData: Array<{ name: string; calls: number }> = [];
   
@@ -321,7 +293,6 @@ const getCallVolumeByHour = (calls: Call[]) => {
     const hourCalls = calls?.filter(call => {
       if (!call.started_at) return false;
       const callDate = new Date(call.started_at);
-      // ✅ QUITAR restricción de fecha actual
       return callDate.getHours() === hour;
     }).length || 0;
     
@@ -334,33 +305,20 @@ const getCallVolumeByHour = (calls: Call[]) => {
   return hoursData;
 };
 
-// Agrupar por día de semana (para "esta semana")
 const getCallVolumeByDayOfWeek = (calls: Call[]) => {
-  // En getCallVolumeByDayOfWeek, agrega:
-console.log('🔍 getCallVolumeByDayOfWeek debug:', {
-  totalCalls: calls?.length,
-  filteredCalls: calls?.filter(call => call.started_at).length,
-  sampleDates: calls?.slice(0, 3).map(c => c.started_at)
-});
-  
   const weekDays = getWeekDays();
-
-  
   return weekDays.map(day => ({
     name: day.name,
     calls: calls?.filter(call => {
       if (!call.started_at) return false;
-      // ✅ SOLO filtrar por día de semana, SIN fecha actual
       return new Date(call.started_at).getDay() === day.id;
     }).length || 0
   }));
-  
 };
-// Agrupar por día del mes (para "este mes")
+
 const getCallVolumeByDayOfMonth = (calls: Call[]) => {
   const volumeData: Array<{ name: string; calls: number }> = [];
   
-  // Agrupar por día del mes (1-31) sin importar el mes
   for (let day = 1; day <= 31; day++) {
     const dayCalls = calls?.filter(call => {
       if (!call.started_at) return false;
@@ -376,7 +334,7 @@ const getCallVolumeByDayOfMonth = (calls: Call[]) => {
   return volumeData;
 };
 
-// ✅ FUNCIONES PARA CALL DURATION
+// Funciones para call duration
 const getCallDurationData = (calls: Call[], timeRange: string) => {
   switch (timeRange) {
     case 'today':
@@ -453,7 +411,6 @@ const getCallDurationByDayOfWeek = (calls: Call[]) => {
   return weekDays.map(day => {
     const dayCalls = calls?.filter(call => {
       if (!call.started_at || !call.duration) return false;
-      // ✅ SOLO filtrar por día de semana
       return new Date(call.started_at).getDay() === day.id;
     }) || [];
 
@@ -505,7 +462,7 @@ const getCallDurationByDayOfMonth = (calls: Call[]) => {
   return durationData;
 };
 
-// ✅ FUNCIONES PARA LATENCY
+// Funciones para latency
 const getLatencyData = (calls: Call[], timeRange: string) => {
   switch (timeRange) {
     case 'today':
@@ -572,7 +529,6 @@ const getLatencyByDayOfWeek = (calls: Call[]) => {
   return weekDays.map(day => {
     const dayCalls = calls?.filter(call => {
       if (!call.started_at || !call.latency) return false;
-      // ✅ SOLO filtrar por día de semana
       return new Date(call.started_at).getDay() === day.id;
     }) || [];
 
@@ -614,7 +570,7 @@ const getLatencyByDayOfMonth = (calls: Call[]) => {
   return latencyData;
 };
 
-// ✅ FUNCIONES PARA INBOUND/OUTBOUND
+// Funciones para inbound/outbound
 const getInboundOutboundData = (calls: Call[], timeRange: string) => {
   switch (timeRange) {
     case 'today':
@@ -681,7 +637,6 @@ const getInboundOutboundByDayOfWeek = (calls: Call[]) => {
   return weekDays.map(day => {
     const dayCalls = calls?.filter(call => {
       if (!call.started_at) return false;
-      // ✅ SOLO filtrar por día de semana
       return new Date(call.started_at).getDay() === day.id;
     }) || [];
 
@@ -723,7 +678,7 @@ const getInboundOutboundByDayOfMonth = (calls: Call[]) => {
   return inboundOutboundData;
 };
 
-// NUEVA FUNCIÓN: Calcular costos con sistema por país
+// Función para calcular costos con sistema por país
 const calcularCostosConSistemaPais = (calls: Call[]) => {
   let totalCosto = 0;
   let totalRetellCost = 0;
@@ -735,18 +690,15 @@ const calcularCostosConSistemaPais = (calls: Call[]) => {
   const costoPorAgente: Record<string, { costo: number; llamadas: number }> = {};
   const costoPorDia: Record<string, number> = {};
   const minutosPorDia: Record<string, number> = {};
-  
 
   calls.forEach(call => {
-    // Usar country_code o default a Chile para datos antiguos
     const rawCountryCode = call.country_code || 'CL';
     const countryCode = rawCountryCode.trim().toUpperCase();
-    const retellCost = call.cost || 0; // ✅ CAMBIADO: usar campo normalizado
+    const retellCost = call.cost || 0;
     
-    // Calcular costo usando el nuevo sistema
     const costoTotal = calculateCallCost(retellCost, call.duration?.toString() || '0m', countryCode);
     const costoLlamada = costoTotal - retellCost;
-    const minutos = parseDuration(call.duration?.toString() || '0m') / 60; // ✅ CALCULAR MINUTOS
+    const minutos = parseDuration(call.duration?.toString() || '0m') / 60;
     
     totalCosto += costoTotal;
     totalRetellCost += retellCost;
@@ -761,25 +713,25 @@ const calcularCostosConSistemaPais = (calls: Call[]) => {
     costoPorPais[countryCode].llamadas += 1;
 
     // Acumular por tipo
-    if (call.call_type === 'inbound') { // ✅ CAMBIADO: usar campo normalizado
+    if (call.call_type === 'inbound') {
       costoPorTipo.inbound += costoTotal;
     } else {
       costoPorTipo.outbound += costoTotal;
     }
 
     // Acumular por agente
-    const agentId = call.agent_id || 'unknown'; // ✅ CAMBIADO: usar campo normalizado
+    const agentId = call.agent_id || 'unknown';
     if (!costoPorAgente[agentId]) {
       costoPorAgente[agentId] = { costo: 0, llamadas: 0 };
     }
     costoPorAgente[agentId].costo += costoTotal;
     costoPorAgente[agentId].llamadas += 1;
 
-    // ✅ ACUMULAR COSTOS POR DÍA CORRECTAMENTE
+    // Acumular costos por día
     if (call.started_at) {
       const fecha = new Date(call.started_at);
-      const diaSemana = fecha.toLocaleDateString('es-ES', { weekday: 'long' }); // "lunes", "martes", etc.
-      const diaKey = diaSemana.toLowerCase(); // Para consistencia
+      const diaSemana = fecha.toLocaleDateString('es-ES', { weekday: 'long' });
+      const diaKey = diaSemana.toLowerCase();
       
       costoPorDia[diaKey] = (costoPorDia[diaKey] || 0) + costoTotal;
       minutosPorDia[diaKey] = (minutosPorDia[diaKey] || 0) + minutos;
@@ -821,7 +773,6 @@ const calcularCostosConSistemaPais = (calls: Call[]) => {
   }));
 
   // Formatear costo por día
-  const weekDays = getWeekDays();
   const costoPorDiaFormateado = diasSemana.map(dia => ({
     name: dia.name,
     costo: parseFloat((costoPorDia[dia.key] || 0).toFixed(6)),
@@ -863,11 +814,10 @@ export interface DashboardFilters {
   country: string;
 }
 
-// Fetch data from Supabase
+// Función principal para obtener datos de Supabase
 async function fetchDataFromSupabase(
   supabase: any,
   filters: DashboardFilters
-  
 ): Promise<DashboardData> {
   try {
     let query = supabase
@@ -879,8 +829,6 @@ async function fetchDataFromSupabase(
       query = query.eq('api', filters.agent);
     }
 
-
-
     if (filters.callType !== 'all') {
       query = query.eq('tipo_de_llamada', filters.callType);
     }
@@ -890,7 +838,6 @@ async function fetchDataFromSupabase(
     }
 
     if (filters.country !== 'all') {
-      // Normalizar código de país a minúsculas para coincidir con la BD
       const normalizedCountryCode = filters.country.toLowerCase();
       query = query.eq('country_code', normalizedCountryCode);
     }
@@ -921,150 +868,81 @@ async function fetchDataFromSupabase(
     const { data: rawCalls, error: callsError } = await query;
 
     if (callsError) {
-      console.error('Error fetching calls:', callsError);
+      log.error('Error fetching calls', callsError);
       throw callsError;
     }
 
-    // ✅ NUEVO: OBTENER CLIENTE Y NORMALIZAR DATOS
+    // Normalizar datos
     const clientId = getCurrentClient();
     const normalizedCalls = DataNormalizer.normalizeCallsData(rawCalls || [], clientId);
 
-        let filteredCalls = normalizedCalls;
+    let filteredCalls = normalizedCalls;
     
     if (filters.status !== 'all') {
-      console.log('🔍 APLICANDO FILTRO STATUS NORMALIZADO:', {
+      log.dev('Aplicando filtro de status', {
         filtro: filters.status,
         llamadasAntes: filteredCalls.length,
-        llamadasDespues: filteredCalls.filter(call => call.status === filters.status).length,
-        valoresDisponibles: [...new Set(filteredCalls.map(call => call.status))]
+        llamadasDespues: filteredCalls.filter(call => call.status === filters.status).length
       });
       
       filteredCalls = filteredCalls.filter(call => call.status === filters.status);
     }
 
-    // ✅ USAR LOS DATOS FILTRADOS
+    // Verificación del sistema de normalización
+    const fieldMap = getFieldMapping(clientId);
+    log.dev('Sistema de normalización verificado', {
+      cliente: clientId,
+      llamadasRaw: rawCalls?.length || 0,
+      llamadasNormalizadas: normalizedCalls.length,
+      camposMapeados: Object.keys(fieldMap).length
+    });
 
-
-
-    // ✅ VERIFICACIÓN DEL SISTEMA DE NORMALIZACIÓN - EN EL LUGAR CORRECTO
-    const fieldMap = getFieldMapping(clientId); // Obtener fieldMap aquí
-      console.log('🎯 SISTEMA DE NORMALIZACIÓN - VERIFICACIÓN:', {
-        cliente: clientId,
-        llamadasRaw: rawCalls?.length || 0,
-        llamadasNormalizadas: normalizedCalls.length,
-        camposMapeados: Object.keys(fieldMap).length,
-        muestraNormalizacion: normalizedCalls.slice(0, 2).map(call => ({
-          // ✅ USAR LOS DATOS REALES EN LUGAR DE _raw
-          call_type: { 
-            raw: call._raw?.tipo_de_llamada,  // ← Campo específico
-            normalizado: call.call_type 
-          },
-          cost: { 
-            raw: call._raw?.retell_cost,      // ← Campo específico  
-            normalizado: call.cost 
-          },
-          duration: { 
-            raw: call._raw?.duration,         // ← Campo específico
-            normalizado: call.duration, 
-            tipo: typeof call.duration 
-          },
-          status: { 
-            raw: call._raw?.status,           // ← Campo específico
-            normalizado: call.status 
-          }
-        }))
-      });
-// En fetchDataFromSupabase, JUSTO DESPUÉS de obtener rawCalls:
-      console.log('🔍 INVESTIGACIÓN COMPLETA VALORES STATUS:', {
-        // 1. Ver TODOS los valores únicos que existen
-        todosLosValoresUnicos: [...new Set(rawCalls?.map(call => call.status))],
-        
-        // 2. Conteo detallado de CADA valor
-        conteoDetallado: rawCalls?.reduce((acc, call) => {
-          acc[call.status] = (acc[call.status] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>),
-        
-        // 3. Ver valores que podrían ser "transfer" o "voicemail"
-        valoresConTransfer: rawCalls?.filter(call => 
-          call.status.toLowerCase().includes('transfer')
-        ).map(call => call.status),
-        
-        valoresConVoicemail: rawCalls?.filter(call => 
-          call.status.toLowerCase().includes('voice') || 
-          call.status.toLowerCase().includes('mail') ||
-          call.status.toLowerCase().includes('buzon')
-        ).map(call => call.status),
-        
-        // 4. Ver valores "raros" o diferentes
-        valoresNoStandard: rawCalls?.filter(call => 
-          !['ended', 'error', 'successful', 'failed'].includes(call.status.toLowerCase())
-        ).map(call => call.status)
-      });
-
-    // ✅ CONTINUAR CON LOS DATOS NORMALIZADOS
     const calls = filteredCalls;
 
-    // Fetch agents for agent performance
+    // Fetch agents para performance
     const { data: agents, error: agentsError } = await supabase
       .from('agents')
       .select('*');
 
     if (agentsError) {
-      console.error('Error fetching agents:', agentsError);
+      log.error('Error fetching agents', agentsError);
       throw agentsError;
     }
-    console.log('🔍 DEBUG APLICACIÓN FILTROS:', {
-      filtroStatus: filters.status,
-      llamadasFiltradas: calls?.filter(call => call.status === filters.status).length,
-      totalLlamadas: calls?.length,
-      valoresStatusUnicos: [...new Set(calls?.map(call => call.status))]
-    });
 
-    // ✅ MÉTRICAS PRINCIPALES CORREGIDAS
+    // Métricas principales
     const totalCalls = calls?.length || 0;
     const successfulCalls = calls?.filter(call => call.status === 'successful').length || 0;
     const transferredCalls = calls?.filter(call => call.status === 'transferred').length || 0;
     const voicemailCalls = calls?.filter(call => call.status === 'voicemail').length || 0;
     const answeredCalls = calls?.filter(call => call.status !== 'failed').length || 0;
     const failedCalls = calls?.filter(call => call.status === 'failed').length || 0;
-    const inboundCalls = calls?.filter(call => call.call_type === 'inbound').length || 0; // ✅ CAMBIADO
-    const outboundCalls = calls?.filter(call => call.call_type === 'outbound').length || 0; // ✅ CAMBIADO
+    const inboundCalls = calls?.filter(call => call.call_type === 'inbound').length || 0;
+    const outboundCalls = calls?.filter(call => call.call_type === 'outbound').length || 0;
     const totalSeconds = calls?.reduce((sum, call) => sum + parseDuration(call.duration?.toString()), 0) || 0;
     const averageDurationSeconds = totalCalls > 0 ? totalSeconds / totalCalls : 0;
     const averageDurationMinutes = averageDurationSeconds / 60;
     const averageDurationFormatted = Math.round(averageDurationMinutes * 10) / 10;
 
-    // Calculate rates
+    // Calcular rates
     const pickupRate = totalCalls > 0 ? Math.round((answeredCalls / totalCalls) * 100) : 0;
     const successRate = totalCalls > 0 ? Math.round((successfulCalls / totalCalls) * 100) : 0;
     const transferRate = totalCalls > 0 ? Math.round((transferredCalls / totalCalls) * 100) : 0;
     const voicemailRate = totalCalls > 0 ? Math.round((voicemailCalls / totalCalls) * 100) : 0;
 
-    // DEBUG: Verificar datos reales
-    console.log('=== DEBUG MÉTRICAS PRINCIPALES ===');
-    console.log('Total calls:', totalCalls);
-    console.log('Successful calls:', successfulCalls);
-    console.log('Success rate:', successRate + '%');
-    
+    log.dev('Métricas principales calculadas', {
+      totalCalls,
+      successfulCalls,
+      successRate: `${successRate}%`
+    });
 
-    // ✅ USAR NUEVAS FUNCIONES DE AGRUPAMIENTO
-    // 1. Volumen de llamadas por período
+    // Usar nuevas funciones de agrupamiento
     const callVolume = getCallVolumeData(calls || [], filters.timeRange);
-
-    // 2. Duración promedio por período
     const callDuration = getCallDurationData(calls || [], filters.timeRange);
-
-    // 3. Latencia promedio por período
     const latency = getLatencyData(calls || [], filters.timeRange);
-
-    // 4. Llamadas entrantes vs salientes por período
     const inboundOutbound = getInboundOutboundData(calls || [], filters.timeRange);
-
-    // 5. Tasa de éxito por hora (se mantiene igual)
     const successByHour = calculateSuccessByHour(calls || []);
 
-    // Calculate sentiment distribution
+    // Calcular distribución de sentimiento
     const sentimentCounts = {
       positive: calls?.filter(call => call.sentiment === 'positive').length || 0,
       neutral: calls?.filter(call => call.sentiment === 'neutral').length || 0,
@@ -1091,7 +969,7 @@ async function fetchDataFromSupabase(
       }
     ];
 
-    // Sentiment trend por día de semana (se mantiene igual por ahora)
+    // Sentiment trend por día de semana
     const weekDays = getWeekDays();
     const sentimentTrend = weekDays.map(day => {
       const dayCalls = calls?.filter(call => {
@@ -1122,9 +1000,9 @@ async function fetchDataFromSupabase(
       };
     });
 
-    // ✅ AGENT PERFORMANCE CORREGIDO
+    // Agent performance
     const agentPerformanceData = agents?.map(agent => {
-      const agentCalls = calls?.filter(call => call.agent_id === agent.id) || []; // ✅ CAMBIADO
+      const agentCalls = calls?.filter(call => call.agent_id === agent.id) || [];
       const totalCalls = agentCalls.length;
 
       if (totalCalls === 0) {
@@ -1142,7 +1020,6 @@ async function fetchDataFromSupabase(
       const successfulCalls = agentCalls.filter(call => call.status === 'successful').length;
       const transferredCalls = agentCalls.filter(call => call.status === 'transferred').length;
 
-      // Calcular duración promedio en minutos
       const totalDurationMinutes = agentCalls.reduce((sum, call) => {
         const durationSeconds = parseDuration(call.duration?.toString());
         return sum + (durationSeconds / 60);
@@ -1150,13 +1027,11 @@ async function fetchDataFromSupabase(
       
       const avgDuration = totalDurationMinutes / totalCalls;
 
-      // Cálculo de satisfacción con datos reales
       const sentimentCalls = agentCalls.filter(call => call.sentiment);
       const positiveCalls = sentimentCalls.filter(call => call.sentiment === 'positive').length;
       const satisfaction = sentimentCalls.length > 0 ? 
         Math.round((positiveCalls / sentimentCalls.length) * 100) : 50;
 
-      // Calcular llamadas por hora
       const totalHours = totalDurationMinutes / 60;
       const callsPerHour = totalHours > 0 ? Math.round(totalCalls / totalHours) : 0;
 
@@ -1171,7 +1046,7 @@ async function fetchDataFromSupabase(
       };
     }) || [];
 
-    // Formatear para el chart de manera dinámica
+    // Formatear para el chart
     const metrics = [
       { key: 'successRate', label: 'Tasa de éxito (%)' },
       { key: 'transferRate', label: 'Tasa de transferencia (%)' },
@@ -1194,14 +1069,14 @@ async function fetchDataFromSupabase(
     // Métricas para fallos
     const failedMetrics = {
       totalFailed: failedCalls,
-      failedInbound: calls?.filter(call => call.status === 'failed' && call.call_type === 'inbound').length || 0, // ✅ CAMBIADO
-      failedOutbound: calls?.filter(call => call.status === 'failed' && call.call_type === 'outbound').length || 0, // ✅ CAMBIADO
+      failedInbound: calls?.filter(call => call.status === 'failed' && call.call_type === 'inbound').length || 0,
+      failedOutbound: calls?.filter(call => call.status === 'failed' && call.call_type === 'outbound').length || 0,
       failureRate: totalCalls > 0 ? Math.round((failedCalls / totalCalls) * 100) : 0,
       inboundFailureRate: inboundCalls > 0 ? Math.round((calls?.filter(call => call.status === 'failed' && call.call_type === 'inbound').length || 0) / inboundCalls * 100) : 0,
       outboundFailureRate: outboundCalls > 0 ? Math.round((calls?.filter(call => call.status === 'failed' && call.call_type === 'outbound').length || 0) / outboundCalls * 100) : 0
     };
 
-    // ✅ NUEVO: Calcular costos con sistema por país
+    // Calcular costos con sistema por país
     const costMetrics = calcularCostosConSistemaPais(calls || []);
 
     // Reemplazar nombres de agentes en costoPorAgente
@@ -1248,6 +1123,11 @@ async function fetchDataFromSupabase(
       reasons: disconnectReasons
     };
 
+    log.success('Datos del dashboard obtenidos exitosamente', {
+      totalLlamadas: totalCalls,
+      tasaExito: `${successRate}%`,
+      costeTotal: costMetrics.totalCosto
+    });
 
     return {
       pickupRate,
@@ -1281,7 +1161,7 @@ async function fetchDataFromSupabase(
     };
 
   } catch (error) {
-    console.error('Error fetching data from Supabase:', error);
+    log.error('Error fetching data from Supabase', error);
     
     const weekDays = getWeekDays();
     const emptyDayData = weekDays.map(day => ({ name: day.name, calls: 0 }));
@@ -1351,6 +1231,7 @@ async function fetchDataFromSupabase(
   }
 }
 
+// Hook principal
 export const useDashboardData = () => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -1363,15 +1244,16 @@ export const useDashboardData = () => {
     channel: 'all',
     country: 'all'
   });
- // ✅ NUEVOS ESTADOS PARA DATOS RELACIONADOS
+
+  // Estados para datos relacionados
   const [callsWithAdditionalData, setCallsWithAdditionalData] = useState<CallWithAdditionalData[]>([]);
   const [additionalDataWithCalls, setAdditionalDataWithCalls] = useState<AdditionalDataWithCall[]>([]);
   const [relationshipStats, setRelationshipStats] = useState<any>(null);
 
-  // ✅ NUEVO: Obtener configuración del dashboard
+  // Obtener configuración del dashboard
   const { getStatusLabel, getCallTypeLabel, getStatusColor, getCallTypeColor } = useDashboardConfig();
 
-    const fetchAgents = async () => {
+  const fetchAgents = async () => {
     const supabase = useSupabase();
     try {
       const { data: agentsData, error } = await supabase
@@ -1380,54 +1262,59 @@ export const useDashboardData = () => {
         .order('name');
       
       if (error) {
-        console.error('Error fetching agents:', error);
+        log.error('Error fetching agents', error);
         return;
       }
       
       setAgents(agentsData || []);
+      log.dev('Agentes obtenidos', { count: agentsData?.length });
     } catch (error) {
-      console.error('Error fetching agents:', error);
+      log.error('Error fetching agents', error);
     }
   };
 
-  // ✅ NUEVA FUNCIÓN: Obtener datos relacionados
+  // Función para obtener datos relacionados
   const fetchCallsWithAdditionalData = useCallback(async () => {
     const clientId = getCurrentClient();
     if (!clientId) return;
     
     try {
-      console.log('🔄 [useDashboardData] Obteniendo datos relacionados...');
+      log.dev('Obteniendo datos relacionados');
       const relatedData = await DataRelationService.getCallsWithAdditionalData(clientId);
       setCallsWithAdditionalData(relatedData);
       
-      // Métricas de relación para debugging
       const withAdditional = relatedData.filter(call => call.additional_data).length;
-      console.log(`📈 [useDashboardData] Relación completada: ${withAdditional}/${relatedData.length} llamadas tienen datos adicionales`);
+      log.success('Relación de datos completada', {
+        llamadasConDatos: withAdditional,
+        totalLlamadas: relatedData.length
+      });
       
     } catch (error) {
-      console.error('❌ [useDashboardData] Error fetching related data:', error);
+      log.error('Error fetching related data', error);
       setCallsWithAdditionalData([]);
     }
   }, []);
 
-  // ✅ NUEVA FUNCIÓN: Para la pestaña de datos adicionales
+  // Función para la pestaña de datos adicionales
   const fetchAdditionalDataWithCalls = useCallback(async () => {
     const clientId = getCurrentClient();
     if (!clientId) return;
     
     try {
-      console.log('🔄 [useDashboardData] Obteniendo datos adicionales con llamadas...');
+      log.dev('Obteniendo datos adicionales con llamadas');
       const additionalWithCalls = await DataRelationService.getAdditionalDataWithCalls(clientId);
       setAdditionalDataWithCalls(additionalWithCalls);
       
-      console.log(`📊 [useDashboardData] Datos adicionales con llamadas: ${additionalWithCalls.length} registros`);
+      log.dev('Datos adicionales con llamadas obtenidos', {
+        registros: additionalWithCalls.length
+      });
     } catch (error) {
-      console.error('❌ [useDashboardData] Error fetching additional data with calls:', error);
+      log.error('Error fetching additional data with calls', error);
       setAdditionalDataWithCalls([]);
     }
   }, []);
 
-  // ✅ NUEVA FUNCIÓN: Obtener estadísticas de relación
+  // Función para obtener estadísticas de relación
   const fetchRelationshipStats = useCallback(async () => {
     const clientId = getCurrentClient();
     if (!clientId) return;
@@ -1435,18 +1322,17 @@ export const useDashboardData = () => {
     try {
       const stats = await DataRelationService.getRelationshipStats(clientId);
       setRelationshipStats(stats);
-      console.log('📊 [useDashboardData] Estadísticas de relación:', stats);
+      log.dev('Estadísticas de relación obtenidas', stats);
     } catch (error) {
-      console.error('❌ [useDashboardData] Error fetching relationship stats:', error);
+      log.error('Error fetching relationship stats', error);
       setRelationshipStats(null);
     }
   }, []);
 
   const updateData = async (newFilters: Partial<DashboardFilters>) => {
-    console.log('🔍 DEBUG FILTROS:', {
+    log.dev('Actualizando datos con nuevos filtros', {
       filtrosAnteriores: filters,
-      nuevosFiltros: newFilters,
-      filtrosCombinados: { ...filters, ...newFilters }
+      nuevosFiltros: newFilters
     });
     
     const supabase = useSupabase();
@@ -1455,19 +1341,19 @@ export const useDashboardData = () => {
     setLoading(true);
     
     try {
-      // ✅ Ya pasa por el normalizador automáticamente en fetchDataFromSupabase
       const newData = await fetchDataFromSupabase(supabase, updatedFilters);
       setData(newData);
       
-      // ✅ ACTUALIZAR DATOS RELACIONADOS EN PARALELO
+      // Actualizar datos relacionados en paralelo
       await Promise.all([
         fetchCallsWithAdditionalData(),
         fetchAdditionalDataWithCalls(),
         fetchRelationshipStats()
       ]);
       
+      log.success('Datos actualizados exitosamente');
     } catch (error) {
-      console.error('Error fetching data:', error);
+      log.error('Error fetching data', error);
     } finally {
       setLoading(false);
     }
@@ -1484,7 +1370,7 @@ export const useDashboardData = () => {
     loading,
     filters,
     updateData,
-    // ✅ NUEVOS VALORES PARA LA RELACIÓN DE DATOS
+    // Nuevos valores para la relación de datos
     callsWithAdditionalData,
     additionalDataWithCalls,
     relationshipStats,

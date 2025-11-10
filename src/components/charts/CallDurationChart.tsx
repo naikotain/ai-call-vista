@@ -1,15 +1,12 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-
-
-
-
+import { log } from '@/utils/simple-logger';
 
 interface CallDurationChartProps {
   data: Array<{ name: string; duration: number }>;
 }
 
 export const CallDurationChart = ({ data }: CallDurationChartProps) => {
-  console.log('📊 Datos recibidos en CallDurationChart:', data);
+  
   return (
     <div className="h-80 w-full">
       <ResponsiveContainer width="100%" height="100%">
@@ -39,8 +36,6 @@ export const CallDurationChart = ({ data }: CallDurationChartProps) => {
           />
         </BarChart>
       </ResponsiveContainer>
-      
     </div>
-    
   );
 };

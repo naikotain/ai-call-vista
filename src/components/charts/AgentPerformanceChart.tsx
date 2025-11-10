@@ -6,6 +6,23 @@ interface AgentPerformanceChartProps {
   loading?: boolean;
 }
 
+// ✅ NUEVO: Tooltip personalizado para mostrar nombres de agentes
+const CustomAgentTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
+        <p className="font-semibold text-foreground mb-2">{label}</p>
+        {payload.map((entry: any, index: number) => (
+          <p key={index} className="text-sm" style={{ color: entry.color }}>
+            <span className="font-medium">{entry.name}:</span> {entry.value}%
+          </p>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
+
 export const AgentPerformanceChart = ({ data, loading }: AgentPerformanceChartProps) => {
   
   if (loading) {
@@ -41,7 +58,7 @@ export const AgentPerformanceChart = ({ data, loading }: AgentPerformanceChartPr
   const metricData = data.map(metric => {
     const result: any = { metric: metric.metric };
     agentNames.forEach(agentName => {
-      result[agentName] = metric[agentName] || 0; // ✅ Manejar valores undefined
+      result[agentName] = metric[agentName] || 0;
     });
     return result;
   });
@@ -53,9 +70,22 @@ export const AgentPerformanceChart = ({ data, loading }: AgentPerformanceChartPr
     m.metric.includes('Duración') || m.metric.includes('Llamadas por hora')
   );
 
+  // ✅ NUEVO: Colores consistentes para agentes
+  const getAgentColor = (index: number) => {
+    const colors = [
+      'hsl(var(--primary))',
+      'hsl(var(--success))', 
+      'hsl(var(--warning))',
+      'hsl(var(--destructive))',
+      'hsl(var(--info))',
+      'hsl(var(--accent))'
+    ];
+    return colors[index % colors.length];
+  };
+
   return (
     <div className="space-y-8">
-      {/* Gráfico 1: Métricas porcentuales */}
+      {/* Gráfico 1: Métricas porcentuales - CORREGIDO */}
       <div className="bg-card border rounded-lg p-4">
         <h4 className="text-lg font-semibold mb-4">📊 Métricas de Calidad (%)</h4>
         <div className="h-64">
@@ -71,17 +101,15 @@ export const AgentPerformanceChart = ({ data, loading }: AgentPerformanceChartPr
                 tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
                 tickFormatter={(value) => `${value}%`}
               />
-              <Tooltip 
-                formatter={(value: number) => [`${value}%`, 'Valor']}
-                labelFormatter={(label) => `Métrica: ${label}`}
-              />
+              {/* ✅ CORREGIDO: Usar CustomTooltip en lugar de formatter */}
+              <Tooltip content={<CustomAgentTooltip />} />
               <Legend />
               {agentNames.map((agentName, index) => (
                 <Bar
                   key={agentName}
                   dataKey={agentName}
                   name={agentName}
-                  fill={['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning))'][index % 3]}
+                  fill={getAgentColor(index)}
                   radius={[4, 4, 0, 0]}
                 />
               ))}
@@ -90,7 +118,7 @@ export const AgentPerformanceChart = ({ data, loading }: AgentPerformanceChartPr
         </div>
       </div>
 
-      {/* Gráfico 2: Métricas de volumen y performance en columnas */}
+      {/* Gráfico 2: Métricas de volumen y performance - TAMBIÉN CORREGIDOS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Volumen de llamadas */}
         <div className="bg-card border rounded-lg p-4">
@@ -106,14 +134,18 @@ export const AgentPerformanceChart = ({ data, loading }: AgentPerformanceChartPr
                 <YAxis 
                   tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
                 />
-                <Tooltip formatter={(value: number) => [value, 'Llamadas']} />
+                {/* ✅ CORREGIDO: Tooltip personalizado */}
+                <Tooltip 
+                  content={<CustomAgentTooltip />}
+                  formatter={(value: number) => [value, 'Llamadas']}
+                />
                 <Legend />
                 {agentNames.map((agentName, index) => (
                   <Bar
                     key={agentName}
                     dataKey={agentName}
                     name={agentName}
-                    fill={['hsl(var(--info))', 'hsl(var(--secondary))', 'hsl(var(--muted))'][index % 3]}
+                    fill={getAgentColor(index)}
                     radius={[4, 4, 0, 0]}
                   />
                 ))}
@@ -139,7 +171,9 @@ export const AgentPerformanceChart = ({ data, loading }: AgentPerformanceChartPr
                 <YAxis 
                   tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
                 />
+                {/* ✅ CORREGIDO: Tooltip personalizado */}
                 <Tooltip 
+                  content={<CustomAgentTooltip />}
                   formatter={(value: number, name: string) => {
                     if (name.includes('Duración')) return [value, 'minutos'];
                     return [value, 'llamadas/hora'];
@@ -151,7 +185,7 @@ export const AgentPerformanceChart = ({ data, loading }: AgentPerformanceChartPr
                     key={agentName}
                     dataKey={agentName}
                     name={agentName}
-                    fill={['hsl(var(--warning))', 'hsl(var(--destructive))', 'hsl(var(--accent))'][index % 3]}
+                    fill={getAgentColor(index)}
                     radius={[4, 4, 0, 0]}
                   />
                 ))}
@@ -161,7 +195,7 @@ export const AgentPerformanceChart = ({ data, loading }: AgentPerformanceChartPr
         </div>
       </div>
 
-      {/* Tabla de resumen mejorada */}
+      {/* Tabla de resumen (se mantiene igual) */}
       <div className="bg-card border rounded-lg p-6">
         <h4 className="text-lg font-semibold mb-4">👥 Resumen Comparativo de Agentes</h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -171,7 +205,6 @@ export const AgentPerformanceChart = ({ data, loading }: AgentPerformanceChartPr
               return acc;
             }, {} as Record<string, any>);
             
-            // Calcular ranking aproximado
             const successRate = agentData['Tasa de éxito (%)'];
             const satisfaction = agentData['Satisfacción (%)'];
             const totalCalls = agentData['Total de llamadas'];

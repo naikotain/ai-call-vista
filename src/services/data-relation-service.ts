@@ -1,13 +1,9 @@
-import { supabase } from '../lib/supabase';
 import { getSupabaseClient } from '../lib/supabase';
-
+import { log } from '@/utils/simple-logger';
 import { 
   NormalizedCall, 
-  AdditionalClientData, 
   CallWithAdditionalData, 
-  AdditionalDataWithCall,
-  isNormalizedCall,
-  isAdditionalClientData
+  AdditionalDataWithCall
 } from '../types/normalized';
 
 export class DataRelationService {
@@ -16,13 +12,10 @@ export class DataRelationService {
    * Obtiene llamadas con sus datos adicionales relacionados por call_id_retell
    */
   static async getCallsWithAdditionalData(clientId: string): Promise<CallWithAdditionalData[]> {
-    const supabase = getSupabaseClient(clientId); // ✅ Usar cliente dinámico
+    const supabase = getSupabaseClient(clientId);
     
     try {
-      console.log(`🔗 [DataRelationService] Relacionando datos para cliente: ${clientId}`);
-   
       
-      // El resto del código se mantiene IGUAL...
       const [callsResponse, additionalDataResponse] = await Promise.all([
         supabase
           .from('calls')
@@ -37,19 +30,19 @@ export class DataRelationService {
       ]);
 
       if (callsResponse.error) {
-        console.error('❌ Error fetching calls:', callsResponse.error);
+        log.error('Error fetching calls', callsResponse.error);
         throw new Error(`Error fetching calls: ${callsResponse.error.message}`);
       }
       
       if (additionalDataResponse.error) {
-        console.error('❌ Error fetching additional data:', additionalDataResponse.error);
+        log.error('Error fetching additional data', additionalDataResponse.error);
         throw new Error(`Error fetching additional data: ${additionalDataResponse.error.message}`);
       }
 
       const calls = callsResponse.data || [];
       const additionalData = additionalDataResponse.data || [];
 
-      console.log(`📊 [DataRelationService] Calls: ${calls.length}, Additional: ${additionalData.length}`);
+
 
       // Normalizar llamadas y relacionar datos
       const normalizedCalls = calls.map(call => this.normalizeCallData(call, clientId));
@@ -72,12 +65,12 @@ export class DataRelationService {
       });
 
       const relatedCount = callsWithAdditionalData.filter(c => c.additional_data).length;
-      console.log(`✅ [DataRelationService] Relación completada: ${relatedCount}/${callsWithAdditionalData.length} llamadas tienen datos adicionales`);
+      log.success(`Relación completada: ${relatedCount}/${callsWithAdditionalData.length} llamadas tienen datos adicionales`);
       
       return callsWithAdditionalData;
 
     } catch (error) {
-      console.error('❌ [DataRelationService] Error crítico:', error);
+      log.error('Error crítico en relación de datos', error);
       throw error;
     }
   }
@@ -86,17 +79,16 @@ export class DataRelationService {
    * Obtiene datos adicionales con información de llamada relacionada
    */
   static async getAdditionalDataWithCalls(clientId: string): Promise<AdditionalDataWithCall[]> {
-    const supabase = getSupabaseClient(clientId); // ✅ Usar cliente dinámico
+    const supabase = getSupabaseClient(clientId);
     
     try {
-      console.log(`🔗 [DataRelationService] Obteniendo datos para cliente: ${clientId}`);
+  
 
-      
       const [additionalResponse, callsResponse] = await Promise.all([
         supabase
           .from('additional_client_data')
           .select('*')
-          .eq('client_id', clientId) // ✅ AGREGAR este filtro que falta
+          .eq('client_id', clientId)
           .eq('is_visible', true)
           .order('created_at', { ascending: false }),
         
@@ -105,61 +97,42 @@ export class DataRelationService {
           .select('*')
       ]);
 
-    console.log('📊 [DataRelationService] Respuesta additional:', additionalResponse);
-    console.log('📊 [DataRelationService] Respuesta calls:', callsResponse);
+      if (additionalResponse.error) {
+        log.error('Error en additional data', additionalResponse.error);
+        throw additionalResponse.error;
+      }
+      if (callsResponse.error) {
+        log.error('Error en calls data', callsResponse.error);
+        throw callsResponse.error;
+      }
 
-    if (additionalResponse.error) {
-      console.error('❌ Error en additional:', additionalResponse.error);
-      throw additionalResponse.error;
-    }
-    if (callsResponse.error) {
-      console.error('❌ Error en calls:', callsResponse.error);
-      throw callsResponse.error;
-    }
+      const additionalData = additionalResponse.data || [];
+      const calls = callsResponse.data || [];
 
-    const additionalData = additionalResponse.data || [];
-    const calls = callsResponse.data || [];
 
-    console.log(`📈 [DataRelationService] Datos encontrados:`, {
-      additionalDataCount: additionalData.length,
-      callsCount: calls.length,
-      clientId: clientId
-    });
 
-    // Mostrar los call_id_retell que se están comparando
-    console.log('🔍 Call IDs para relación:', {
-      additionalRetellIds: additionalData.map(a => a.call_id_retell),
-      callsRetellIds: calls.map(c => c.call_id_retell)
-    });
+      const result = additionalData.map(additional => {
+        const relatedCall = calls.find(call => 
+          call.call_id_retell === additional.call_id_retell
+        );
 
-    const result = additionalData.map(additional => {
-      const relatedCall = calls.find(call => {
-        const match = call.call_id_retell === additional.call_id_retell;
-        if (match) {
-          console.log(`✅ Match encontrado: ${additional.call_id_retell} -> ${call.customer_phone}`);
-        }
-        return match;
+        return {
+          ...additional,
+          call_data: relatedCall || null
+        };
       });
 
-      return {
-        ...additional,
-        call_data: relatedCall || null
-      };
-    });
+      const withCalls = result.filter(r => r.call_data).length;
+ 
 
-    console.log(`🎯 [DataRelationService] Resultado final:`, {
-      total: result.length,
-      withCalls: result.filter(r => r.call_data).length,
-      withoutCalls: result.filter(r => !r.call_data).length
-    });
+      return result;
 
-    return result;
-
-  } catch (error) {
-    console.error('❌ [DataRelationService] Error crítico:', error);
-    throw error;
+    } catch (error) {
+      log.error('Error crítico en datos adicionales', error);
+      throw error;
+    }
   }
-}
+
   /**
    * Normaliza los datos de llamada desde Supabase al formato interno
    */
@@ -198,7 +171,7 @@ export class DataRelationService {
       numero_agente: call.numero_agente,
       latency: call.latency,
       
-      // ✅ NUEVO CAMPO PARA RELACIÓN
+      // Campo para relación
       call_id_retell: call.call_id_retell,
       
       // Campos legacy para compatibilidad
@@ -239,6 +212,8 @@ export class DataRelationService {
    * Método de utilidad: Obtiene estadísticas de relación
    */
   static async getRelationshipStats(clientId: string) {
+    const supabase = getSupabaseClient(clientId);
+    
     try {
       const [calls, additionalData] = await Promise.all([
         supabase.from('calls').select('call_id_retell'),
@@ -253,7 +228,7 @@ export class DataRelationService {
         additionalWithRetellId.some(additional => additional.call_id_retell === call.call_id_retell)
       );
 
-      return {
+      const stats = {
         totalCalls: calls.data?.length || 0,
         totalAdditional: additionalData.data?.length || 0,
         callsWithRetellId: callsWithRetellId.length,
@@ -261,8 +236,10 @@ export class DataRelationService {
         matchedRelations: matchedIds.length,
         matchRate: callsWithRetellId.length > 0 ? (matchedIds.length / callsWithRetellId.length) * 100 : 0
       };
+
+      
     } catch (error) {
-      console.error('❌ Error obteniendo estadísticas:', error);
+      log.error('Error obteniendo estadísticas de relación', error);
       return null;
     }
   }

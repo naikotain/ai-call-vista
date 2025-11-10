@@ -1,6 +1,10 @@
-// src/lib/supabase.ts - VERSIÓN MULTI-CLIENTE
+// src/lib/supabase.ts - VERSIÓN OPTIMIZADA
 import { createClient } from '@supabase/supabase-js';
 import { CLIENT_CONFIGS, DEFAULT_CLIENT } from '../config/clients';
+import { log } from '@/utils/simple-logger';
+
+// Cache para reutilizar instancias
+const clientCache = new Map();
 
 /**
  * Obtiene el cliente Supabase DINÁMICO basado en el cliente actual
@@ -10,17 +14,30 @@ export const getSupabaseClient = (clientId?: string) => {
   const config = CLIENT_CONFIGS[actualClientId as keyof typeof CLIENT_CONFIGS];
   
   if (!config) {
+    log.error(`Configuración no encontrada para cliente: ${actualClientId}`);
     throw new Error(`Configuración no encontrada para cliente: ${actualClientId}`);
   }
 
-  console.log(`🔗 [getSupabaseClient] Conectando a ${actualClientId}: ${config.supabaseUrl}`);
+  // ✅ REUTILIZAR INSTANCIA SI EXISTE
+  const cacheKey = config.supabaseUrl;
+  if (clientCache.has(cacheKey)) {
+    return clientCache.get(cacheKey);
+  }
+
+
   
-  return createClient(config.supabaseUrl, config.supabaseKey, {
+  const client = createClient(config.supabaseUrl, config.supabaseKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
+      detectSessionInUrl: false // ✅ EVITA MULTIPLES INSTANCIAS
     }
   });
+
+  // ✅ GUARDAR EN CACHE
+  clientCache.set(cacheKey, client);
+  
+  return client;
 };
 
 /**
@@ -32,9 +49,9 @@ export const getCurrentClientId = (): string => {
   const urlParams = new URLSearchParams(window.location.search);
   const clientId = urlParams.get('client') || DEFAULT_CLIENT;
   
-  console.log(`🎯 [getCurrentClientId] Cliente detectado: ${clientId}`);
+  log.dev(`Cliente detectado: ${clientId}`);
   return clientId;
 };
 
-// Cliente por defecto para compatibilidad (usa DEFAULT_CLIENT)
+// Cliente por defecto para compatibilidad
 export const supabase = getSupabaseClient();
