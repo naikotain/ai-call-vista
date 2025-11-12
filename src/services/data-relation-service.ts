@@ -211,36 +211,37 @@ export class DataRelationService {
   /**
    * Método de utilidad: Obtiene estadísticas de relación
    */
-  static async getRelationshipStats(clientId: string) {
-    const supabase = getSupabaseClient(clientId);
+static async getRelationshipStats(clientId: string) {
+  const supabase = getSupabaseClient(clientId);
+  
+  try {
+    const [calls, additionalData] = await Promise.all([
+      supabase.from('calls').select('call_id_retell'),
+      supabase.from('additional_client_data').select('call_id_retell').eq('client_id', clientId).eq('is_visible', true)
+    ]);
+
+    const callsWithRetellId = calls.data?.filter(call => call.call_id_retell) || [];
+    const additionalWithRetellId = additionalData.data?.filter(additional => additional.call_id_retell) || [];
+
+    // Encontrar matches
+    const matchedIds = callsWithRetellId.filter(call => 
+      additionalWithRetellId.some(additional => additional.call_id_retell === call.call_id_retell)
+    );
+
+    const stats = {
+      totalCalls: calls.data?.length || 0,
+      totalAdditional: additionalData.data?.length || 0,
+      callsWithRetellId: callsWithRetellId.length,
+      additionalWithRetellId: additionalWithRetellId.length,
+      matchedRelations: matchedIds.length,
+      matchRate: callsWithRetellId.length > 0 ? (matchedIds.length / callsWithRetellId.length) * 100 : 0
+    };
+
+    console.log('📊 [getRelationshipStats] Estadísticas:', stats);
+    return stats; // ✅ AGREGAR ESTE RETURN
     
-    try {
-      const [calls, additionalData] = await Promise.all([
-        supabase.from('calls').select('call_id_retell'),
-        supabase.from('additional_client_data').select('call_id_retell').eq('client_id', clientId).eq('is_visible', true)
-      ]);
-
-      const callsWithRetellId = calls.data?.filter(call => call.call_id_retell) || [];
-      const additionalWithRetellId = additionalData.data?.filter(additional => additional.call_id_retell) || [];
-
-      // Encontrar matches
-      const matchedIds = callsWithRetellId.filter(call => 
-        additionalWithRetellId.some(additional => additional.call_id_retell === call.call_id_retell)
-      );
-
-      const stats = {
-        totalCalls: calls.data?.length || 0,
-        totalAdditional: additionalData.data?.length || 0,
-        callsWithRetellId: callsWithRetellId.length,
-        additionalWithRetellId: additionalWithRetellId.length,
-        matchedRelations: matchedIds.length,
-        matchRate: callsWithRetellId.length > 0 ? (matchedIds.length / callsWithRetellId.length) * 100 : 0
-      };
-
-      
-    } catch (error) {
-      log.error('Error obteniendo estadísticas de relación', error);
-      return null;
-    }
+  } catch (error) {
+    log.error('Error obteniendo estadísticas de relación', error);
+    return null;
   }
-}
+}}

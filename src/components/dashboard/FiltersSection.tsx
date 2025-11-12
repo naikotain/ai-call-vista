@@ -1,7 +1,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { DashboardFilters, Agent } from "@/hooks/useDashboardData";
-import { COUNTRY_COSTS, getCountryCost } from "@/config/countryCosts"; // Importar la configuración de países
+import { getCountryCost } from "@/config/countryCosts";
 
 interface FiltersSectionProps {
   filters: DashboardFilters;

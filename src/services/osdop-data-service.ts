@@ -7,7 +7,7 @@ export class OSDOPDataService {
     clientId: string, 
     filters?: AdditionalDataFilters
   ): Promise<OSDOPClientData[]> {
-    console.log('🔧 OSDOPDataService.getOSDOPData - clientId:', clientId);
+
     
     const clientConfig = CLIENT_CONFIGS[clientId];
     
@@ -17,9 +17,7 @@ export class OSDOPDataService {
     }
 
     const supabase = getSupabaseClient();
-    
-    console.log('🔧 Configuración del cliente:', clientConfig);
-    console.log('🔧 Tabla a usar:', clientConfig.tables.additional_data);
+
     
     try {
       // ✅ QUERY SIMPLIFICADA - Sin JOIN problemático
@@ -53,7 +51,7 @@ export class OSDOPDataService {
         return [];
       }
 
-      console.log('✅ Datos obtenidos de Supabase:', data?.length || 0, 'registros');
+
       
       // ✅ Transformar datos sin información de llamadas
       return (data || []).map(item => ({
@@ -67,7 +65,7 @@ export class OSDOPDataService {
   }
 
   static async getUniqueValues(clientId: string, field: string): Promise<string[]> {
-    console.log('🔧 OSDOPDataService.getUniqueValues - clientId:', clientId, 'field:', field);
+
     
     const clientConfig = CLIENT_CONFIGS[clientId];
     
@@ -91,7 +89,7 @@ export class OSDOPDataService {
       }
 
       const uniqueValues = [...new Set(data?.map(item => item[field]))].filter(Boolean);
-      console.log(`✅ Valores únicos para ${field}:`, uniqueValues);
+
       
       return uniqueValues as string[];
     } catch (error) {

@@ -18,6 +18,16 @@ export const CLIENT_CONFIGS = {
       agents: 'agents',
       additional_data: 'additional_client_data' // ← AÑADIR ESTO
     }
+  },
+  'cliente3': {
+    name: 'Cliente 3',
+    supabaseUrl: 'https://ltzhbctnhnaiukizncuy.supabase.co',
+    supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0emhiY3RuaG5haXVraXpuY3V5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5MDg2OTMsImV4cCI6MjA3ODQ4NDY5M30.mG6RswvjDhUm1vgQ32xwfS7l_DlvcACauTLbNWVkHj4',
+    tables: {
+      calls: 'calls',
+      agents: 'agents',
+      additional_data: 'additional_client_data'
+    }
   }
 };
 

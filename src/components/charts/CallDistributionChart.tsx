@@ -28,14 +28,7 @@ export const CallDistributionChart = () => {
       }
     ];
 
-    // ✅ DEBUG DE LO QUE SE ESTÁ CALCULANDO
-    console.log('🔍 DISTRIBUCIÓN CALCULADA:', {
-      totalCalls: data.totalCalls,
-      successRate: data.successRate,
-      successfulCalls: Math.round((data.successRate / 100) * data.totalCalls),
-      failedCalls: data.failedMetrics?.totalFailed || 0,
-      distribution
-    });
+
 
     return distribution.filter(item => item.value > 0);
   };

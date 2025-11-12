@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { categorizeDisconnectReason } from '@/config/disconnect-categories';
 
 export interface DisconnectionReason {
   reason: string;
@@ -46,7 +47,9 @@ const getFriendlyReasonName = (reason: string): string => {
     'error_retell': 'Error Retell',
     'error_unknown': 'Error desconocido',
     'error_user_not_joined': 'Usuario no se unió',
-    'registered_call_timeout': 'Timeout de llamada'
+    'registered_call_timeout': 'Timeout de llamada',
+    'call_ended_by_customer': 'Cliente finalizó llamada',
+    'agent_ended_call': 'Agente finalizó llamada' 
   };
   
   return reasonNames[reason] || reason;

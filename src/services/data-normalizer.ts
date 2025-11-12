@@ -7,6 +7,8 @@ export class DataNormalizer {
     // ✅ Obtener mapeo con detección automática si es necesario
     const fieldMap = getFieldMapping(clientId, allRawData);
     const valueMap = getValueMapping(clientId);
+
+
     
     // Obtener valores raw
     const rawStatus = rawData[fieldMap.status];
@@ -23,6 +25,7 @@ export class DataNormalizer {
    // normalizedStatus: this.normalizeValue(rawStatus, valueMap.status, 'failed'),
    // valueMapping: valueMap.status
     // });
+
     
     return {
       // Campos principales con tipos específicos
@@ -60,20 +63,6 @@ export class DataNormalizer {
       _client: clientId
     };
 
-    console.log('🔍 VERIFICACIÓN FINAL NORMALIZACIÓN:', {
-      entrada: {
-            status: rawData[fieldMap.status],
-            call_type: rawData[fieldMap.call_type],
-            duration: rawData[fieldMap.duration],
-            cost: rawData[fieldMap.cost]
-          },
-          salida: {
-            status: normalizedStatus,
-            call_type: normalizedCallType, 
-            duration: this.parseNumber(rawData[fieldMap.duration]),
-            cost: this.parseNumber(rawData[fieldMap.cost])
-          }
-    });
 
   }
   
@@ -85,9 +74,12 @@ export class DataNormalizer {
   
   // Normalizadores específicos con type safety
   private static normalizeStatus(value: any, valueMapping?: Record<string, string>): InternalStatus {
+
     const normalized = this.normalizeValue(value, valueMapping, 'failed');
     const validStatuses: InternalStatus[] = ['successful', 'failed', 'voicemail', 'transferred', 'ongoing'];
     return validStatuses.includes(normalized as InternalStatus) ? normalized as InternalStatus : 'failed';
+
+    
   }
   
   private static normalizeCallType(value: any, valueMapping?: Record<string, string>): CallType {
@@ -169,10 +161,7 @@ static inspectDataFields(rawData: any[], clientId: string): void {
   const fieldMap = getFieldMapping(clientId);
   const sample = rawData[0];
   
-  console.log('🔍 INSPECCIÓN COMPLETA DE CAMPOS:');
-  console.log('Cliente:', clientId);
-  console.log('Campos disponibles en datos raw:', Object.keys(sample));
-  console.log('--- MAPEO CONFIGURADO ---');
+
   
   Object.entries(fieldMap).forEach(([internalField, externalField]) => {
     // ✅ AGREGAR VERIFICACIÓN DE TIPO
@@ -188,25 +177,9 @@ static inspectDataFields(rawData: any[], clientId: string): void {
   console.log(normalized);
 }
 
-  // DEBUG ESPECIAL EN data-normalizer.ts - temporalmente agrega esto:
-static debugNormalization(rawData: any, clientId: string) {
-  const fieldMap = getFieldMapping(clientId);
-  const valueMap = getValueMapping(clientId);
-  
-  console.log('🛠️ DEBUG NORMALIZADOR:', {
-    clientId,
-    campoStatus: fieldMap.status,
-    valorStatusRaw: rawData[fieldMap.status],
-    mapeoStatus: valueMap.status,
-    campoTipoLlamada: fieldMap.call_type,
-    valorTipoLlamadaRaw: rawData[fieldMap.call_type],
-    mapeoTipoLlamada: valueMap.call_type,
-    campoCosto: fieldMap.cost,
-    valorCostoRaw: rawData[fieldMap.cost],
-    campoDuracion: fieldMap.duration,
-    valorDuracionRaw: rawData[fieldMap.duration]
-  });
-}
+
+
+
 
  
 }

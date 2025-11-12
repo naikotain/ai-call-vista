@@ -25,22 +25,13 @@ export const SuccessByHourChart = ({ data, filters, loading = false }: SuccessBy
 
   // ✅ DEBUG DE CAMBIOS EN FILTROS
   useEffect(() => {
-    console.log('🔄 SuccessByHourChart - Filtros cambiaron:', {
-      anteriores: previousFilters.current,
-      nuevos: filters,
-      cambiaron: JSON.stringify(previousFilters.current) !== JSON.stringify(filters)
-    });
+
     previousFilters.current = filters;
   }, [filters]);
 
   // ✅ DEBUG DE DATOS
   useEffect(() => {
-    console.log('📊 SuccessByHourChart - Datos actualizados:', {
-      loading,
-      tieneData: !!data,
-      dataLength: data?.length || 0,
-      filters
-    });
+
   }, [data, loading, filters]);
 
   // Si no hay datos o está cargando, mostrar estado vacío
@@ -54,12 +45,6 @@ export const SuccessByHourChart = ({ data, filters, loading = false }: SuccessBy
 
   const successByHour = data || [];
 
-  // ✅ VERIFICAR SI LOS DATOS SON DIFERENTES
-  console.log('🔍 SuccessByHourChart - Renderizando con:', {
-    successByHourLength: successByHour.length,
-    primerElemento: successByHour[0],
-    filters
-  });
 
   if (successByHour.length === 0) {
     return (
@@ -90,12 +75,7 @@ export const SuccessByHourChart = ({ data, filters, loading = false }: SuccessBy
     const totalCalls = hoursWithCalls.reduce((sum, hour) => sum + hour.totalCalls, 0);
     const overallSuccessRate = totalCalls > 0 ? Math.round((totalSuccessful / totalCalls) * 100) : 0;
 
-    console.log('📈 Insights calculados:', {
-      bestHour: `${bestHour.hour} (${bestHour.successRate}%)`,
-      worstHour: `${worstHour.hour} (${worstHour.successRate}%)`, 
-      overallSuccessRate,
-      totalCalls
-    });
+ 
 
     return {
       bestHour,

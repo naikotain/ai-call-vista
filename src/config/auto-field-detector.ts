@@ -1,4 +1,5 @@
 import { FIELD_MAPPINGS, VALUE_MAPPINGS } from './field-mappings';
+import { DEFAULT_CLIENT } from './clients';
 
 // Patrones para detectar campos automáticamente
 const FIELD_PATTERNS = {
@@ -15,7 +16,7 @@ const FIELD_PATTERNS = {
 
 export class AutoFieldDetector {
   static detectFields(sampleData: any[], clientId: string) {
-    if (!sampleData.length) return FIELD_MAPPINGS.cliente1;
+    if (!sampleData.length) return FIELD_MAPPINGS[DEFAULT_CLIENT as keyof typeof FIELD_MAPPINGS];
     
     const sample = sampleData[0];
     const availableFields = Object.keys(sample);
@@ -30,17 +31,13 @@ export class AutoFieldDetector {
       
       detectedMapping[internalField] = foundField || patterns[0];
     });
-    
-    console.log('🔍 DETECCIÓN AUTOMÁTICA DE CAMPOS:', {
-      clientId,
-      availableFields,
-      detectedMapping
-    });
-    
+
     return detectedMapping;
   }
   
   static getAutoFieldMapping(clientId: string, sampleData?: any[]) {
+
+
     // Si ya existe mapeo manual, usarlo
     if (FIELD_MAPPINGS[clientId]) {
       return FIELD_MAPPINGS[clientId];
@@ -52,6 +49,6 @@ export class AutoFieldDetector {
     }
     
     // Fallback al cliente1
-    return FIELD_MAPPINGS.cliente1;
+    return FIELD_MAPPINGS[DEFAULT_CLIENT as keyof typeof FIELD_MAPPINGS];
   }
 }

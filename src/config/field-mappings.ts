@@ -36,7 +36,8 @@ export const BASE_FIELD_MAPPINGS = {
 // Mapeos específicos por cliente (solo para casos especiales)
 export const CUSTOM_FIELD_MAPPINGS: Record<string, any> = {
   'cliente1': BASE_FIELD_MAPPINGS,
-  'cliente2': BASE_FIELD_MAPPINGS
+  'cliente2': BASE_FIELD_MAPPINGS,
+  'cliente3': BASE_FIELD_MAPPINGS
   // Para nuevos clientes, no necesitas agregar nada aquí - se detectarán automáticamente
 };
 
@@ -44,7 +45,7 @@ export const CUSTOM_FIELD_MAPPINGS: Record<string, any> = {
 export const SMART_VALUE_MAPPINGS = {
   status: {
     // Mapeo universal de status
-    'successful': 'successful', 'exitoso': 'successful', 'completed': 'successful', 'ended': 'successful',
+    'successful': 'successful', 'exitoso': 'successful', 'completed': 'successful', 'ended': 'successful','Ended': 'successful',
     'failed': 'failed', 'fallido': 'failed', 'error': 'failed',
     'ongoing': 'ongoing', 'en_curso': 'ongoing', 'in_progress': 'ongoing', 'progress': 'ongoing',
     'voicemail': 'voicemail', 'buzon': 'voicemail', 'voice_mail': 'voicemail',

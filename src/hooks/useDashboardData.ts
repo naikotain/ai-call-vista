@@ -1,7 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSupabase } from '@/integrations/supabase/multi-client';
 import { Database } from '@/integrations/supabase/types';
-import { COUNTRY_COSTS, calculateCallCost, getCountryCost } from '@/config/countryCosts';
+import { 
+  COUNTRY_COST_CONFIGS, 
+  calculateCallCost, 
+  getCountryCost,
+  calculateTotalCost 
+} from '@/config/countryCosts';
+import { CLIENT_CONFIGS, DEFAULT_CLIENT } from '../config/clients';
 
 // Imports para normalización y relación
 import { useDashboardConfig } from '@/hooks/useDashboardConfig';
@@ -17,6 +23,7 @@ import { getFieldMapping } from '@/config/field-mappings';
 
 // Logger centralizado
 import { log } from '@/utils/simple-logger';
+import { categorizeDisconnectReason } from '@/config/disconnect-categories';
 
 // Usar el tipo normalizado
 type Call = NormalizedCall;
@@ -159,16 +166,16 @@ const parseDurationToSeconds = (durationStr: string | null): number => {
 };
 
 // Helper functions para categorizar las razones de desconexión
-const categorizeDisconnectReason = (reason: string): 'ended' | 'not_connected' | 'error' => {
-  const endedReasons = ['user_hangup', 'agent_hangup', 'voicemail_reached', 'inactivity', 'max_duration_reached'];
-  const notConnectedReasons = ['dial_busy', 'dial_failed', 'dial_no_answer', 'invalid_destination', 
-                              'telephony_provider_permission_denied', 'telephony_provider_unavailable',
-                              'sip_routing_error', 'marked_as_spam', 'user_declined'];
+//const categorizeDisconnectReason = (reason: string): 'ended' | 'not_connected' | 'error' => {
+//  const endedReasons = ['user_hangup', 'agent_hangup', 'voicemail_reached', 'inactivity', 'max_duration_reached'];
+//  const notConnectedReasons = ['dial_busy', 'dial_failed', 'dial_no_answer', 'invalid_destination', 
+//                              'telephony_provider_permission_denied', 'telephony_provider_unavailable',
+//                              'sip_routing_error', 'marked_as_spam', 'user_declined'];
   
-  if (endedReasons.includes(reason)) return 'ended';
-  if (notConnectedReasons.includes(reason)) return 'not_connected';
-  return 'error';
-};
+//  if (endedReasons.includes(reason)) return 'ended';
+//  if (notConnectedReasons.includes(reason)) return 'not_connected';
+// return 'error';
+//};
 
 // Helper function to get week days in Spanish
 const getWeekDays = (): { id: number, name: string }[] => {
@@ -198,13 +205,13 @@ export const formatDuration = (minutes: number): string => {
 
 // Función para obtener el cliente actual de la URL
 function getCurrentClient(): string {
-  if (typeof window === 'undefined') return 'cliente1';
+  if (typeof window === 'undefined') return DEFAULT_CLIENT;
   
   const urlParams = new URLSearchParams(window.location.search);
   const client = urlParams.get('client');
   
-  const validClients = ['cliente1', 'cliente2'];
-  return validClients.includes(client || '') ? client! : 'cliente1';
+  const validClients = Object.keys(CLIENT_CONFIGS); // ['cliente1', 'cliente2', 'cliente3']
+  return validClients.includes(client || '') ? client! : DEFAULT_CLIENT;
 }
 
 // Función para calcular éxito por hora
@@ -276,6 +283,8 @@ const getCallVolumeData = (calls: Call[], timeRange: string) => {
 };
 
 const getCallVolumeByDayOfWeekAllTime = (calls: Call[]) => {
+
+
   const weekDays = getWeekDays();
   return weekDays.map(day => ({
     name: day.name,
@@ -680,6 +689,8 @@ const getInboundOutboundByDayOfMonth = (calls: Call[]) => {
 
 // Función para calcular costos con sistema por país
 const calcularCostosConSistemaPais = (calls: Call[]) => {
+  const clientId = getCurrentClient();
+
   let totalCosto = 0;
   let totalRetellCost = 0;
   let totalCallCost = 0;
@@ -693,17 +704,38 @@ const calcularCostosConSistemaPais = (calls: Call[]) => {
 
   calls.forEach(call => {
     const rawCountryCode = call.country_code || 'CL';
-    const countryCode = rawCountryCode.trim().toUpperCase();
+    const countryCode = rawCountryCode.trim().toLowerCase();
     const retellCost = call.cost || 0;
+
+
     
-    const costoTotal = calculateCallCost(retellCost, call.duration?.toString() || '0m', countryCode);
-    const costoLlamada = costoTotal - retellCost;
+    // ✅ CORRECCIÓN: Lógica clara y sin duplicación
+    let costoTotal = 0;
+    let costoLlamada = 0;
+    
+    if (clientId === 'cliente1' && countryCode === 'arg') {
+      // ✅ SOLO para cliente1 + Argentina: Solo Retell cost (costo llamada = 0)
+      costoTotal = retellCost;
+      costoLlamada = 0;
+    } else {
+      // ✅ Para TODOS los demás casos (cliente2, cliente1 con otros países): Costos normales
+      costoTotal = calculateCallCost(
+        retellCost, 
+        call.duration?.toString() || '0m', 
+        countryCode,
+        clientId
+      );
+      costoLlamada = costoTotal - retellCost;
+    }
+    
     const minutos = parseDuration(call.duration?.toString() || '0m') / 60;
     
     totalCosto += costoTotal;
     totalRetellCost += retellCost;
     totalCallCost += costoLlamada;
     totalMinutos += minutos;
+
+
 
     // Acumular por país
     if (!costoPorPais[countryCode]) {
@@ -751,7 +783,7 @@ const calcularCostosConSistemaPais = (calls: Call[]) => {
 
   // Formatear costo por país para el dashboard
   const costoPorPaisFormateado = Object.entries(costoPorPais).map(([codigo, data]) => {
-    const country = getCountryCost(codigo);
+    const country = getCountryCost(codigo, clientId); 
     const porcentaje = totalCosto > 0 ? (data.costo / totalCosto) * 100 : 0;
     return {
       pais: country.name,
@@ -909,6 +941,7 @@ async function fetchDataFromSupabase(
       throw agentsError;
     }
 
+
     // Métricas principales
     const totalCalls = calls?.length || 0;
     const successfulCalls = calls?.filter(call => call.status === 'successful').length || 0;
@@ -948,6 +981,8 @@ async function fetchDataFromSupabase(
       neutral: calls?.filter(call => call.sentiment === 'neutral').length || 0,
       negative: calls?.filter(call => call.sentiment === 'negative').length || 0
     };
+
+
 
     const sentimentTotal = sentimentCounts.positive + sentimentCounts.neutral + sentimentCounts.negative;
     

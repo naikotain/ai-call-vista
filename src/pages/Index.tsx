@@ -84,6 +84,14 @@ const Index = () => {
   const totalInbound = data ? data.inboundOutbound.reduce((sum, day) => sum + day.entrantes, 0) : 0;
   const totalOutbound = data ? data.inboundOutbound.reduce((sum, day) => sum + day.salientes, 0) : 0;
 
+  console.log('🔍 DEBUG TARJETAS CONTEO:', {
+  dataCallVolume: data?.callVolume,
+  dataInboundOutbound: data?.inboundOutbound,
+  totalCallsCalculado: data ? data.callVolume.reduce((sum, day) => sum + day.calls, 0) : 0,
+  totalInboundCalculado: data ? data.inboundOutbound.reduce((sum, day) => sum + day.entrantes, 0) : 0,
+  totalOutboundCalculado: data ? data.inboundOutbound.reduce((sum, day) => sum + day.salientes, 0) : 0
+});
+
   return (
     <div className="min-h-screen bg-background">
       <DashboardHeader />
