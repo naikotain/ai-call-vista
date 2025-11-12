@@ -45,6 +45,3 @@ export const DASHBOARD_CONFIG = {
     }
   }
 };
-
-// ❌ ELIMINAR ESTO - ya no necesitamos re-exportar
-// export type { InternalStatus, CallType, Sentiment };
