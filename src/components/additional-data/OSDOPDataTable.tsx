@@ -23,9 +23,12 @@ const useClientId = (): string => {
 
 // ✅ NUEVA FUNCIÓN: Obtener valor de campo (soporta custom_fields)
 const getFieldValue = (item: any, key: string) => {
+  // Soporte mejorado para campos anidados en custom_fields
   if (key.startsWith('custom_fields.')) {
-    const fieldName = key.replace('custom_fields.', '');
-    return item.custom_fields?.[fieldName] || '-';
+    const fieldPath = key.replace('custom_fields.', '');
+    // Soporte para campos anidados como custom_fields.precio_interesa
+    const value = fieldPath.split('.').reduce((obj, prop) => obj?.[prop], item.custom_fields);
+    return value || '-';
   }
   return item[key] || '-';
 };
@@ -295,14 +298,14 @@ export const OSDOPDataTable: React.FC = () => {
               </div>
               <div className="p-4 border-t bg-muted/20">
                 <p className="text-sm text-muted-foreground text-center">
-                  Mostrando {data.length} propiedades en el catálogo
+                  Mostrando {data.length} en el catálogo
                 </p>
               </div>
             </div>
           ) : (
             <div className="text-center py-12 border-2 border-dashed rounded-lg">
               <div className="text-lg font-medium text-muted-foreground mb-2">
-                No hay propiedades en el catálogo
+                No hay nada en el catálogo
               </div>
               <div className="text-sm text-muted-foreground mb-4">
                 La tabla 'additional_client_data' está vacía para el cliente {clientId}
@@ -361,17 +364,17 @@ export const OSDOPDataTable: React.FC = () => {
               </div>
               <div className="p-4 border-t bg-muted/20">
                 <p className="text-sm text-muted-foreground text-center">
-                  {additionalDataWithCalls.filter(item => item.call_data).length} / {additionalDataWithCalls.length} propiedades tienen llamada relacionada
+                  {additionalDataWithCalls.filter(item => item.call_data).length} / {additionalDataWithCalls.length} tienen llamada relacionada
                 </p>
               </div>
             </div>
           ) : (
             <div className="text-center py-12 border-2 border-dashed rounded-lg">
               <div className="text-lg font-medium text-muted-foreground mb-2">
-                No hay propiedades relacionadas
+                No hay relacionadas
               </div>
               <div className="text-sm text-muted-foreground mb-4">
-                No se encontraron propiedades en additional_client_data para el cliente {clientId}
+                No se encontraron datos en additional_client_data para el cliente {clientId}
               </div>
               <Button onClick={fetchAdditionalDataWithCalls} variant="outline">
                 Reintentar

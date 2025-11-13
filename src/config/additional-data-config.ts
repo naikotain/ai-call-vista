@@ -31,22 +31,25 @@ export const ADDITIONAL_DATA_CONFIG = {
     ]
   },
   
-  // ✅ NUEVA CONFIGURACIÓN PARA CLIENTE3 (INMOBILIARIA)
   'cliente3': {
-    tableTitle: '🏢 Propiedades Inmobiliarias',
+    tableTitle: '🏢 Leads Inmobiliarios',
     columns: [
-      { key: 'fecha', displayName: 'Fecha Registro' },
-      { key: 'tipo_tramite', displayName: 'Tipo Propiedad' },
-      { key: 'motivo_consulta', displayName: 'Precio' },
-      { key: 'localidad', displayName: 'Calle' },
-      { key: 'nombre', displayName: 'Ciudad/Barrio' },
-      { key: 'numero_afiliado', displayName: 'Habitaciones' },
-      { key: 'telefono', displayName: 'Baños' },
-      { key: 'segundo_nombre', displayName: 'Garaje' },
-      { key: 'estado_tramite', displayName: 'Piscina' },
-      { key: 'especialidad', displayName: 'Trastero' },
-      { key: 'nombre_prestador', displayName: 'Asesor' },
-      { key: 'horario_actual', displayName: 'Teléfono' }
+      { key: 'fecha', displayName: 'Fecha Contacto', width: '110px' },
+      { key: 'nombre', displayName: 'Nombre', width: '120px' },
+      { key: 'telefono', displayName: 'Teléfono', width: '110px' },
+      { key: 'custom_fields.email', displayName: 'Email', width: '150px' },
+      { key: 'tipo_tramite', displayName: 'Compra/Alquiler', width: '120px' },
+      { key: 'especialidad', displayName: 'Tipo Propiedad', width: '110px' },
+      { key: 'motivo_consulta', displayName: 'Precio Máximo', width: '110px' },
+      { key: 'nombre_prestador', displayName: 'Zonas', width: '130px' },
+      { key: 'numero_afiliado', displayName: 'Habitaciones', width: '90px' },
+      { key: 'segundo_nombre', displayName: 'Baños', width: '70px' },
+      { key: 'estado_tramite', displayName: 'Garaje', width: '70px' },
+      { key: 'canal_contacto', displayName: 'Piscina', width: '70px' },
+      { key: 'detalle_reclamo', displayName: 'Trastero', width: '70px' },
+      { key: 'localidad', displayName: 'Calle Interesa', width: '140px' },
+      { key: 'custom_fields.precio_interesa', displayName: 'Precio Interesa', width: '110px' },
+      { key: 'horario_actual', displayName: 'Comentarios', width: '200px' }
     ],
     // 🔧 CONFIGURACIÓN ESPECÍFICA DE FORMATOS PARA INMOBILIARIA
     fieldConfig: {
@@ -56,27 +59,40 @@ export const ADDITIONAL_DATA_CONFIG = {
         currency: 'EUR',
         style: 'currency'
       },
+      'custom_fields.precio_interesa': {
+        type: 'currency',
+        currency: 'EUR', 
+        style: 'currency'
+      },
       'numero_afiliado': { type: 'number' },
-      'telefono': { type: 'number' },
-      'segundo_nombre': {
+      'segundo_nombre': { type: 'number' },
+      'estado_tramite': {
         type: 'badge',
         variants: {
           'SI': 'default',
           'NO': 'secondary'
         }
       },
-      'estado_tramite': {
+      'canal_contacto': {
+        type: 'badge',
+        variants: {
+          'SI': 'default',
+          'NO': 'secondary'
+        }
+      },
+      'detalle_reclamo': {
         type: 'badge', 
         variants: {
           'SI': 'default',
           'NO': 'secondary'
         }
       },
-      'especialidad': {
+      'tipo_tramite': {
         type: 'badge',
         variants: {
-          'SI': 'default',
-          'NO': 'secondary'
+          'COMPRA': 'default',
+          'ALQUILER': 'outline',
+          'COMPRA/ALQUILER': 'secondary'
         }
       }
     }
@@ -86,5 +102,5 @@ export const ADDITIONAL_DATA_CONFIG = {
 // Helper para obtener configuración del cliente
 export const getAdditionalDataConfig = (clientId: string) => {
   return ADDITIONAL_DATA_CONFIG[clientId as keyof typeof ADDITIONAL_DATA_CONFIG] || 
-         ADDITIONAL_DATA_CONFIG['cliente1']; // Fallback a cliente1
+         ADDITIONAL_DATA_CONFIG['cliente1'];
 };
