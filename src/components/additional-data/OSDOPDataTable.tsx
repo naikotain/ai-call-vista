@@ -3,6 +3,9 @@ import { OSDOPClientData } from '../../types/additional-data';
 import { OSDOPDataService } from '../../services/osdop-data-service';
 import { CLIENT_CONFIGS, DEFAULT_CLIENT } from '../../config/clients';
 
+// ✅ NUEVO IMPORT: Configuración dinámica
+import { getAdditionalDataConfig } from '../../config/additional-data-config';
+
 // ✅ NUEVO IMPORT: Hook de dashboard para datos relacionados
 import { useDashboardData } from '../../hooks/useDashboardData';
 
@@ -18,13 +21,63 @@ const useClientId = (): string => {
   return clientFromUrl || DEFAULT_CLIENT;
 };
 
+// ✅ NUEVA FUNCIÓN: Obtener valor de campo (soporta custom_fields)
+const getFieldValue = (item: any, key: string) => {
+  if (key.startsWith('custom_fields.')) {
+    const fieldName = key.replace('custom_fields.', '');
+    return item.custom_fields?.[fieldName] || '-';
+  }
+  return item[key] || '-';
+};
+
+// ✅ NUEVA FUNCIÓN: Formatear valor según configuración
+const formatFieldValue = (value: any, clientConfig: any, fieldKey: string) => {
+  const fieldConfig = clientConfig.fieldConfig?.[fieldKey];
+  
+  // Formato de moneda para precios
+  if (fieldConfig?.type === 'currency') {
+    const numericValue = parseFloat(value?.toString().replace(/[^\d.,]/g, '')?.replace(',', '.') || '0');
+    return new Intl.NumberFormat('es-ES', {
+      style: 'currency',
+      currency: fieldConfig.currency || 'EUR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(numericValue);
+  }
+  
+  // Formato de número
+  if (fieldConfig?.type === 'number') {
+    return value?.toString() || '0';
+  }
+  
+  // Badges para SI/NO
+  if (fieldConfig?.type === 'badge') {
+    const variant = fieldConfig.variants?.[value] || 'default';
+    return <Badge variant={variant as any}>{value}</Badge>;
+  }
+  
+  // Fecha
+  if (fieldConfig?.type === 'date' && value) {
+    try {
+      return new Date(value).toLocaleDateString('es-ES');
+    } catch {
+      return value;
+    }
+  }
+  
+  return value;
+};
+
 export const OSDOPDataTable: React.FC = () => {
   const clientId = useClientId();
   
   const [data, setData] = useState<OSDOPClientData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'classic' | 'related'>('classic'); // ✅ NUEVO: Modo de vista
+  const [viewMode, setViewMode] = useState<'classic' | 'related'>('classic');
 
+  // ✅ NUEVO: Obtener configuración del cliente
+  const clientConfig = getAdditionalDataConfig(clientId);
+  
   // ✅ NUEVO: Usar hook de dashboard para datos relacionados
   const { 
     additionalDataWithCalls, 
@@ -42,12 +95,12 @@ export const OSDOPDataTable: React.FC = () => {
 
   // ✅ NUEVO: Cargar datos relacionados cuando cambie el modo
   useEffect(() => {
-  console.log('🔄 OSDOPDataTable - Cambio de viewMode:', viewMode);
-  if (viewMode === 'related') {
-    console.log('📞 Ejecutando fetchAdditionalDataWithCalls...');
-    fetchAdditionalDataWithCalls();
-  }
-}, [viewMode, fetchAdditionalDataWithCalls]);
+    console.log('🔄 OSDOPDataTable - Cambio de viewMode:', viewMode);
+    if (viewMode === 'related') {
+      console.log('📞 Ejecutando fetchAdditionalDataWithCalls...');
+      fetchAdditionalDataWithCalls();
+    }
+  }, [viewMode, fetchAdditionalDataWithCalls]);
 
   const loadData = async () => {
     if (!clientId) return;
@@ -62,14 +115,6 @@ export const OSDOPDataTable: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const getEstadoBadgeVariant = (estado: string = '') => {
-    if (estado?.includes('Completado') || estado?.includes('completado')) return 'default';
-    if (estado?.includes('Pendiente') || estado?.includes('pendiente')) return 'secondary';
-    if (estado?.includes('En proceso') || estado?.includes('proceso')) return 'outline';
-    if (estado?.includes('Error') || estado?.includes('error')) return 'destructive';
-    return 'default';
   };
 
   // ✅ NUEVA FUNCIÓN: Obtener variante de badge para estado de llamada
@@ -151,20 +196,21 @@ export const OSDOPDataTable: React.FC = () => {
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>Datos de Consultas y Trámites</CardTitle>
+        {/* ✅ CAMBIADO: Título dinámico por cliente */}
+        <CardTitle>{clientConfig.tableTitle}</CardTitle>
         <CardDescription>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
               {viewMode === 'classic' 
-                ? `Información completa de consultas - ${data.length} registros`
-                : `Datos relacionados con llamadas - ${additionalDataWithCalls.length} registros`
+                ? `Catálogo de propiedades - ${data.length} registros`
+                : `Propiedades con llamadas relacionadas - ${additionalDataWithCalls.length} registros`
               }
               <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
                 Cliente: {clientId}
               </span>
             </div>
             
-            {/* ✅ NUEVO: Selector de modo de vista */}
+            {/* ✅ Selector de modo de vista */}
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Vista:</span>
               <select 
@@ -172,7 +218,7 @@ export const OSDOPDataTable: React.FC = () => {
                 onChange={(e) => setViewMode(e.target.value as 'classic' | 'related')}
                 className="text-sm border rounded px-2 py-1"
               >
-                <option value="classic">Clásica</option>
+                <option value="classic">Catálogo</option>
                 <option value="related">Con Llamadas</option>
               </select>
             </div>
@@ -188,7 +234,7 @@ export const OSDOPDataTable: React.FC = () => {
             {isLoading ? 'Cargando...' : 'Actualizar Datos'}
           </Button>
           
-          {/* ✅ NUEVO: Botón para ver estadísticas de relación */}
+          {/* ✅ Botón para ver estadísticas de relación */}
           {viewMode === 'related' && relationshipStats && (
             <Button 
               onClick={fetchAdditionalDataWithCalls}
@@ -203,77 +249,45 @@ export const OSDOPDataTable: React.FC = () => {
       </CardHeader>
       
       <CardContent>
-        {/* ✅ NUEVO: Mostrar estadísticas de relación en modo relacionado */}
+        {/* ✅ Mostrar estadísticas de relación en modo relacionado */}
         {viewMode === 'related' && renderRelationshipStats()}
 
         {isLoading ? (
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
             <p className="mt-2 text-muted-foreground">
-              {viewMode === 'related' ? 'Cargando datos relacionados...' : 'Cargando datos...'}
+              {viewMode === 'related' ? 'Cargando datos relacionados...' : 'Cargando catálogo...'}
             </p>
           </div>
         ) : viewMode === 'classic' ? (
-          // ✅ VISTA CLÁSICA ORIGINAL (sin cambios)
+          // ✅ VISTA CLÁSICA CON COLUMNAS DINÁMICAS
           data.length > 0 ? (
             <div className="rounded-md border">
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Fecha Registro</TableHead>
-                      <TableHead>Nombre</TableHead>
-                      <TableHead>Teléfono</TableHead>
-                      <TableHead>N° Afiliado</TableHead>
-                      <TableHead>Motivo Consulta</TableHead>
-                      <TableHead>Tipo Trámite</TableHead>
-                      <TableHead>Localidad</TableHead>
-                      <TableHead>Estado</TableHead>
+                      {/* ✅ COLUMNAS DINÁMICAS POR CLIENTE */}
+                      {clientConfig.columns.map(column => (
+                        <TableHead key={column.key} className="whitespace-nowrap">
+                          {column.displayName}
+                        </TableHead>
+                      ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {data.map((item) => (
                       <TableRow key={item.id} className="hover:bg-muted/50">
-                        <TableCell className="whitespace-nowrap">
-                          <div className="text-sm font-medium">
-                            {new Date(item.created_at).toLocaleDateString('es-ES')}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {new Date(item.created_at).toLocaleTimeString('es-ES')}
-                          </div>
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          <div>
-                            <div className="font-medium">{item.nombre || 'N/A'}</div>
-                            {item.segundo_nombre && (
-                              <div className="text-sm text-muted-foreground">
-                                {item.segundo_nombre}
-                              </div>
+                        {clientConfig.columns.map(column => (
+                          <TableCell key={column.key} className="whitespace-nowrap">
+                            {/* ✅ RENDERIZADO DINÁMICO CON FORMATO ESPECÍFICO */}
+                            {formatFieldValue(
+                              getFieldValue(item, column.key), 
+                              clientConfig, 
+                              column.key
                             )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          {item.telefono || 'N/A'}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          {item.numero_afiliado || 'N/A'}
-                        </TableCell>
-                        <TableCell className="max-w-xs">
-                          <div className="line-clamp-2">
-                            {item.motivo_consulta || 'N/A'}
-                          </div>
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          {item.tipo_tramite || 'N/A'}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          {item.localidad || 'N/A'}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={getEstadoBadgeVariant(item.estado_tramite)}>
-                            {item.estado_tramite || 'N/A'}
-                          </Badge>
-                        </TableCell>
+                          </TableCell>
+                        ))}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -281,14 +295,14 @@ export const OSDOPDataTable: React.FC = () => {
               </div>
               <div className="p-4 border-t bg-muted/20">
                 <p className="text-sm text-muted-foreground text-center">
-                  Mostrando {data.length} registros de la tabla additional_client_data
+                  Mostrando {data.length} propiedades en el catálogo
                 </p>
               </div>
             </div>
           ) : (
             <div className="text-center py-12 border-2 border-dashed rounded-lg">
               <div className="text-lg font-medium text-muted-foreground mb-2">
-                No hay datos en la tabla
+                No hay propiedades en el catálogo
               </div>
               <div className="text-sm text-muted-foreground mb-4">
                 La tabla 'additional_client_data' está vacía para el cliente {clientId}
@@ -299,19 +313,19 @@ export const OSDOPDataTable: React.FC = () => {
             </div>
           )
         ) : (
-          // ✅ NUEVA VISTA: DATOS RELACIONADOS CON LLAMADAS
+          // ✅ VISTA RELACIONADA CON LLAMADAS (también con columnas dinámicas)
           additionalDataWithCalls.length > 0 ? (
             <div className="rounded-md border">
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Fecha Registro</TableHead>
-                      <TableHead>Nombre</TableHead>
-                      <TableHead>Teléfono</TableHead>
-                      <TableHead>Motivo Consulta</TableHead>
-                      <TableHead>Tipo Trámite</TableHead>
-                      <TableHead>Estado Trámite</TableHead>
+                      {/* ✅ COLUMNAS DINÁMICAS + LLAMADA RELACIONADA */}
+                      {clientConfig.columns.slice(0, 6).map(column => (
+                        <TableHead key={column.key} className="whitespace-nowrap">
+                          {column.displayName}
+                        </TableHead>
+                      ))}
                       <TableHead>Llamada Relacionada</TableHead>
                       <TableHead>Estado Llamada</TableHead>
                     </TableRow>
@@ -319,40 +333,15 @@ export const OSDOPDataTable: React.FC = () => {
                   <TableBody>
                     {additionalDataWithCalls.map((item) => (
                       <TableRow key={item.id} className="hover:bg-muted/50">
-                        <TableCell className="whitespace-nowrap">
-                          <div className="text-sm font-medium">
-                            {new Date(item.created_at).toLocaleDateString('es-ES')}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {new Date(item.created_at).toLocaleTimeString('es-ES')}
-                          </div>
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          <div>
-                            <div className="font-medium">{item.nombre || 'N/A'}</div>
-                            {item.segundo_nombre && (
-                              <div className="text-sm text-muted-foreground">
-                                {item.segundo_nombre}
-                              </div>
+                        {clientConfig.columns.slice(0, 6).map(column => (
+                          <TableCell key={column.key} className="whitespace-nowrap">
+                            {formatFieldValue(
+                              getFieldValue(item, column.key), 
+                              clientConfig, 
+                              column.key
                             )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          {item.telefono || 'N/A'}
-                        </TableCell>
-                        <TableCell className="max-w-xs">
-                          <div className="line-clamp-2">
-                            {item.motivo_consulta || 'N/A'}
-                          </div>
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          {item.tipo_tramite || 'N/A'}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={getEstadoBadgeVariant(item.estado_tramite)}>
-                            {item.estado_tramite || 'N/A'}
-                          </Badge>
-                        </TableCell>
+                          </TableCell>
+                        ))}
                         <TableCell className="whitespace-nowrap">
                           {renderCallInfo(item.call_data)}
                         </TableCell>
@@ -372,17 +361,17 @@ export const OSDOPDataTable: React.FC = () => {
               </div>
               <div className="p-4 border-t bg-muted/20">
                 <p className="text-sm text-muted-foreground text-center">
-                  {additionalDataWithCalls.filter(item => item.call_data).length} / {additionalDataWithCalls.length} registros tienen llamada relacionada
+                  {additionalDataWithCalls.filter(item => item.call_data).length} / {additionalDataWithCalls.length} propiedades tienen llamada relacionada
                 </p>
               </div>
             </div>
           ) : (
             <div className="text-center py-12 border-2 border-dashed rounded-lg">
               <div className="text-lg font-medium text-muted-foreground mb-2">
-                No hay datos relacionados
+                No hay propiedades relacionadas
               </div>
               <div className="text-sm text-muted-foreground mb-4">
-                No se encontraron datos en additional_client_data para el cliente {clientId}
+                No se encontraron propiedades en additional_client_data para el cliente {clientId}
               </div>
               <Button onClick={fetchAdditionalDataWithCalls} variant="outline">
                 Reintentar

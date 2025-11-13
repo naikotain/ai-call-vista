@@ -31,4 +31,5 @@ export const CLIENT_CONFIGS = {
   }
 };
 
+
 export const DEFAULT_CLIENT = 'cliente1';
