@@ -37,7 +37,7 @@ export const ADDITIONAL_DATA_CONFIG = {
       { key: 'fecha', displayName: 'Fecha Contacto', width: '110px' },
       { key: 'nombre', displayName: 'Nombre', width: '120px' },
       { key: 'telefono', displayName: 'Teléfono', width: '110px' },
-      { key: 'custom_fields.email', displayName: 'Email', width: '150px' },
+      { key: 'email', displayName: 'Email', width: '150px' },
       { key: 'tipo_tramite', displayName: 'Compra/Alquiler', width: '120px' },
       { key: 'especialidad', displayName: 'Tipo Propiedad', width: '110px' },
       { key: 'motivo_consulta', displayName: 'Precio Máximo', width: '110px' },
@@ -48,7 +48,7 @@ export const ADDITIONAL_DATA_CONFIG = {
       { key: 'canal_contacto', displayName: 'Piscina', width: '70px' },
       { key: 'detalle_reclamo', displayName: 'Trastero', width: '70px' },
       { key: 'localidad', displayName: 'Calle Interesa', width: '140px' },
-      { key: 'custom_fields.precio_interesa', displayName: 'Precio Interesa', width: '110px' },
+      { key: 'precio_propiedad_interesa', displayName: 'Precio Interesa', width: '110px' },
       { key: 'horario_actual', displayName: 'Comentarios', width: '200px' }
     ],
     // 🔧 CONFIGURACIÓN ESPECÍFICA DE FORMATOS PARA INMOBILIARIA
@@ -59,7 +59,7 @@ export const ADDITIONAL_DATA_CONFIG = {
         currency: 'EUR',
         style: 'currency'
       },
-      'custom_fields.precio_interesa': {
+      'precio_propiedad_interesa': { // ← NUEVO CAMPO CON FORMATO
         type: 'currency',
         currency: 'EUR', 
         style: 'currency'
@@ -94,6 +94,10 @@ export const ADDITIONAL_DATA_CONFIG = {
           'ALQUILER': 'outline',
           'COMPRA/ALQUILER': 'secondary'
         }
+      },
+      'email': { // ← NUEVO FORMATO PARA EMAIL
+        type: 'email',
+        clickable: true
       }
     }
   }
