@@ -2,102 +2,67 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Retell AI Analytics Dashboard Design System */
+/* AI Call Vista - Dark Minimalist Design System */
 @layer base {
   :root {
-    --background: 248 249 252;
-    --foreground: 222.2 84% 4.9%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
-    /* Retell AI Brand Colors */
-    --primary: 221 47% 48%;
+    /* Base Colors - Negro puro y variantes */
+    --background: 0 0% 0%;           /* Negro absoluto */
+    --foreground: 0 0% 98%;          /* Texto blanco puro */
+    
+    /* Card Colors */
+    --card: 0 0% 3%;                 /* Cards casi negro */
+    --card-foreground: 0 0% 98%;
+    
+    /* Popover */
+    --popover: 0 0% 3%;
+    --popover-foreground: 0 0% 98%;
+    
+    /* Primary - Azul eléctrico para contraste */
+    --primary: 210 100% 50%;
     --primary-foreground: 0 0% 100%;
-    --primary-gradient: linear-gradient(90deg, hsl(221 47% 48%) 0%, hsl(221 55% 31%) 100%);
-
-    --secondary: 215 16% 47%;
-    --secondary-foreground: 0 0% 100%;
-
-    --success: 151 55% 42%;
+    --primary-gradient: linear-gradient(90deg, hsl(210 100% 50%) 0%, hsl(210 100% 40%) 100%);
+    
+    /* Secondary - Gris oscuro */
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 98%;
+    
+    /* Status Colors - Más vibrantes en negro */
+    --success: 142 76% 45%;          /* Verde neón */
     --success-foreground: 0 0% 100%;
-
-    --info: 188 78% 41%;
+    
+    --info: 188 94% 50%;             /* Azul brillante */
     --info-foreground: 0 0% 100%;
-
-    --warning: 194 74% 64%;
-    --warning-foreground: 0 0% 100%;
-
-    --danger: 4 90% 58%;
+    
+    --warning: 45 100% 50%;          /* Amarillo eléctrico */
+    --warning-foreground: 0 0% 0%;   /* Texto negro sobre amarillo */
+    
+    --danger: 0 100% 50%;            /* Rojo intenso */
     --danger-foreground: 0 0% 100%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
+    
+    /* Neutral Colors */
+    --muted: 0 0% 8%;
+    --muted-foreground: 0 0% 60%;
+    
+    --accent: 0 0% 15%;
+    --accent-foreground: 0 0% 98%;
+    
+    /* Destructive */
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221 47% 48%;
-
+    --destructive-foreground: 0 0% 98%;
+    
+    /* UI Elements */
+    --border: 0 0% 15%;              /* Bordes gris muy oscuro */
+    --input: 0 0% 10%;               /* Inputs negro intenso */
+    --ring: 210 100% 50%;            /* Focus ring azul eléctrico */
+    
     --radius: 0.5rem;
     
     /* Dashboard specific colors */
-    --dashboard-bg: 248 249 252;
-    --metric-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+    --dashboard-bg: 0 0% 0%;         /* Fondo negro puro */
+    --metric-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.5); /* Sombras más pronunciadas */
   }
 
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --success: 151 55% 42%;
-    --success-foreground: 0 0% 100%;
-
-    --info: 188 78% 41%;  
-    --info-foreground: 0 0% 100%;
-
-    --warning: 194 74% 64%;
-    --warning-foreground: 0 0% 100%;
-
-    --danger: 4 90% 58%;
-    --danger-foreground: 0 0% 100%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    
-    --dashboard-bg: 222.2 84% 4.9%;
-    --metric-shadow: 0 0.15rem 1.75rem 0 rgba(0, 0, 0, 0.3);
-  }
+  /* Eliminamos la clase .dark ya que ahora todo es oscuro por defecto */
 }
 
 @layer base {
@@ -106,7 +71,97 @@
   }
 
   body {
-    @apply bg-background text-foreground;
-    font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    @apply bg-black text-white;      /* Fondo negro absoluto */
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Scrollbar personalizado para tema oscuro */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(0 0% 5%);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(0 0% 20%);
+    border-radius: 4px;
+    transition: background 0.2s ease;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(0 0% 30%);
+  }
+
+  /* Mejoras de legibilidad para texto */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+
+  /* Efectos de hover sutiles */
+  .card-hover {
+    @apply transition-all duration-200 ease-in-out;
+  }
+  
+  .card-hover:hover {
+    @apply shadow-xl transform -translate-y-0.5;
+  }
+
+  /* Gradientes personalizados */
+  .gradient-border {
+    background: linear-gradient(135deg, hsl(210 100% 50%), hsl(210 100% 40%));
+  }
+
+  /* Mejoras para inputs en oscuro */
+  input, textarea, select {
+    @apply bg-black border-border focus:ring-2 focus:ring-primary focus:border-transparent;
+  }
+}
+
+@layer components {
+  /* Componentes específicos del dashboard */
+  .metric-card {
+    @apply bg-card border border-border rounded-lg p-6 shadow-metric-shadow backdrop-blur-sm;
+  }
+  
+  .dashboard-section {
+    @apply bg-card border border-border rounded-xl p-6 shadow-metric-shadow;
+  }
+  
+  /* Badges con mejor contraste */
+  .badge-success {
+    @apply bg-success text-success-foreground px-2 py-1 rounded-full text-xs font-medium;
+  }
+  
+  .badge-warning {
+    @apply bg-warning text-warning-foreground px-2 py-1 rounded-full text-xs font-medium;
+  }
+  
+  .badge-danger {
+    @apply bg-danger text-danger-foreground px-2 py-1 rounded-full text-xs font-medium;
+  }
+  
+  .badge-info {
+    @apply bg-info text-info-foreground px-2 py-1 rounded-full text-xs font-medium;
+  }
+}
+
+@layer utilities {
+  /* Utilidades personalizadas */
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .bg-grid-pattern {
+    background-image: 
+      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 20px 20px;
   }
 }

@@ -25,6 +25,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+// ✅ IMPORTAR funciones del sistema de costos multi-tenant
+import { calculateCallCost, getCurrentClientId } from '@/config/countryCosts';
+
 type Call = Database['public']['Tables']['calls']['Row'] & {
   agents?: { name: string } | null;
 } & {
@@ -38,7 +41,6 @@ interface CallsTableProps {
   filters?: DashboardFilters;
 }
 
-// ✅ CORRECCIÓN: Recibir filters como prop
 export const CallsTable = ({ filters }: CallsTableProps) => {
   const supabase = useSupabase();
   const [calls, setCalls] = useState<Call[]>([]);
@@ -47,7 +49,9 @@ export const CallsTable = ({ filters }: CallsTableProps) => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
 
-  // ✅ AHORA filters existe porque lo recibimos como prop
+  // ✅ Obtener clientId actual
+  const clientId = getCurrentClientId();
+
   useEffect(() => {
     fetchCalls();
   }, [filters]);
@@ -123,39 +127,6 @@ export const CallsTable = ({ filters }: CallsTableProps) => {
     return duration; // Ya está en formato "1m 30s"
   };
 
-  const parseDuration = (durationStr: string | null): number => {
-  if (!durationStr) return 0;
-  
-  const minutesMatch = durationStr.match(/(\d+)m/);
-  const secondsMatch = durationStr.match(/(\d+)s/);
-  
-  const minutes = minutesMatch ? parseInt(minutesMatch[1]) : 0;
-  const seconds = secondsMatch ? parseInt(secondsMatch[1]) : 0;
-  
-  return (minutes * 60) + seconds;
-};
-// Función para calcular costo de llamada por país
-const calculateCallCostByCountry = (duration: string, countryCode: string): number => {
-  const seconds = parseDuration(duration);
-  const minutes = seconds / 60;
-  
-  const COUNTRY_COSTS = {
-    'CL': 0.04,     // Chile
-    'AR': 0.0019,   // Argentina  
-    'MX': 0.02,     // México
-    'ES': 0.91      // España
-  };
-  
-  const costPerMinute = COUNTRY_COSTS[countryCode as keyof typeof COUNTRY_COSTS] || 0.04;
-  return minutes * costPerMinute;
-};
-
-// Función para calcular costo total
-const calculateTotalCost = (retellCost: number, duration: string, countryCode: string): number => {
-  const callCost = calculateCallCostByCountry(duration, countryCode);
-  return (retellCost || 0) + callCost;
-};
-
   // Función para formatear fecha
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
@@ -166,6 +137,24 @@ const calculateTotalCost = (retellCost: number, duration: string, countryCode: s
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  // ✅ FUNCIÓN PARA CALCULAR COSTOS USANDO SISTEMA MULTI-TENANT
+  const calcularCostosParaTabla = (call: Call) => {
+    const retellCost = call.retell_cost || 0;
+    const costoTotal = calculateCallCost(
+      retellCost, 
+      call.duration || '', 
+      call.country_code || 'CL',
+      clientId
+    );
+    const costoLlamada = costoTotal - retellCost;
+    
+    return {
+      retellCost: retellCost,
+      costoLlamada: costoLlamada,
+      costoTotal: costoTotal
+    };
   };
 
   // Filtrar llamadas
@@ -201,6 +190,25 @@ const calculateTotalCost = (retellCost: number, duration: string, countryCode: s
       </Badge>
     );
   };
+
+  // ✅ DEBUG para verificar cálculos
+  useEffect(() => {
+    if (filteredCalls.length > 0) {
+      console.log('🔍 CALLSTABLE DEBUG - Cliente actual:', clientId);
+      const primeraConCosto = filteredCalls.find(call => call.retell_cost > 0);
+      if (primeraConCosto) {
+        const costos = calcularCostosParaTabla(primeraConCosto);
+        console.log('🔍 CALLSTABLE DEBUG - Ejemplo cálculo:', {
+          clientId,
+          retell_cost: primeraConCosto.retell_cost,
+          duration: primeraConCosto.duration,
+          country_code: primeraConCosto.country_code,
+          costoLlamada: costos.costoLlamada,
+          costoTotal: costos.costoTotal
+        });
+      }
+    }
+  }, [filteredCalls, clientId]);
 
   if (loading) {
     return (
@@ -282,9 +290,9 @@ const calculateTotalCost = (retellCost: number, duration: string, countryCode: s
                   <TableHead>Duración</TableHead>
                   <TableHead>Canal</TableHead>
                   <TableHead>Sentimiento</TableHead>
-                  <TableHead>País</TableHead> {/* NUEVA COLUMNA */}
-                  <TableHead>Costo Retell</TableHead> {/* NUEVA COLUMNA */}
-                  <TableHead>Costo Llamada</TableHead> {/* NUEVA COLUMNA */}
+                  <TableHead>País</TableHead>
+                  <TableHead>Costo Retell</TableHead>
+                  <TableHead>Costo Llamada</TableHead>
                   <TableHead>Costo Total</TableHead> 
                 </TableRow>
               </TableHeader>
@@ -296,49 +304,68 @@ const calculateTotalCost = (retellCost: number, duration: string, countryCode: s
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredCalls.map((call) => (
-                    <TableRow key={call.id}><TableCell className="font-medium">
-                        {formatDate(call.started_at)}
-                      </TableCell><TableCell>
-                        {call.agents?.name || 'N/A'}
-                      </TableCell><TableCell>{call.customer_phone}</TableCell><TableCell>{getTypeBadge(call.tipo_de_llamada)}</TableCell><TableCell>{getStatusBadge(call.status)}</TableCell><TableCell>{formatDuration(call.duration)}</TableCell><TableCell>
-                        <Badge variant="outline">
-                          {call.channel || 'Voz'}
-                        </Badge>
-                      </TableCell><TableCell>
-                        {call.sentiment ? (
-                          <Badge variant={
-                            call.sentiment === 'positive' ? 'default' :
-                            call.sentiment === 'negative' ? 'destructive' : 'outline'
-                          }>
-                            {call.sentiment === 'positive' ? 'Positivo' :
-                            call.sentiment === 'negative' ? 'Negativo' : 'Neutral'}
-                          </Badge>
-                        ) : (
-                          'N/A'
-                        )}
-                      </TableCell><TableCell>
-                        {call.country_code ? (
+                  filteredCalls.map((call) => {
+                    // ✅ CALCULAR COSTOS USANDO SISTEMA MULTI-TENANT
+                    const costos = calcularCostosParaTabla(call);
+                    
+                    return (
+                      <TableRow key={call.id}>
+                        <TableCell className="font-medium">
+                          {formatDate(call.started_at)}
+                        </TableCell>
+                        <TableCell>
+                          {call.agents?.name || 'N/A'}
+                        </TableCell>
+                        <TableCell>{call.customer_phone}</TableCell>
+                        <TableCell>{getTypeBadge(call.tipo_de_llamada)}</TableCell>
+                        <TableCell>{getStatusBadge(call.status)}</TableCell>
+                        <TableCell>{formatDuration(call.duration)}</TableCell>
+                        <TableCell>
                           <Badge variant="outline">
-                            {call.country_code === 'CL' ? '🇨🇱 Chile' :
-                            call.country_code === 'AR' ? '🇦🇷 Argentina' :
-                            call.country_code === 'MX' ? '🇲🇽 México' :
-                            call.country_code === 'ES' ? '🇪🇸 España' :
-                            call.country_code}
+                            {call.channel || 'Voz'}
                           </Badge>
-                        ) : (
-                          'N/A'
-                        )}
-                      </TableCell><TableCell className="text-right">
-                        ${(call.retell_cost || 0).toFixed(4)}
-                      </TableCell><TableCell className="text-right">
-                        ${calculateCallCostByCountry(call.duration || '', call.country_code || 'CL').toFixed(4)}
-                      </TableCell><TableCell className="text-right font-medium">
-                        ${calculateTotalCost(call.retell_cost || 0, call.duration || '', call.country_code || 'CL').toFixed(4)}
-                      </TableCell></TableRow>
-                  ))
+                        </TableCell>
+                        <TableCell>
+                          {call.sentiment ? (
+                            <Badge variant={
+                              call.sentiment === 'positive' ? 'default' :
+                              call.sentiment === 'negative' ? 'destructive' : 'outline'
+                            }>
+                              {call.sentiment === 'positive' ? 'Positivo' :
+                              call.sentiment === 'negative' ? 'Negativo' : 'Neutral'}
+                            </Badge>
+                          ) : (
+                            'N/A'
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {call.country_code ? (
+                            <Badge variant="outline">
+                              {call.country_code === 'CL' ? '🇨🇱 Chile' :
+                              call.country_code === 'AR' ? '🇦🇷 Argentina' :
+                              call.country_code === 'MX' ? '🇲🇽 México' :
+                              call.country_code === 'ES' ? '🇪🇸 España' :
+                              call.country_code}
+                            </Badge>
+                          ) : (
+                            'N/A'
+                          )}
+                        </TableCell>
+                        {/* ✅ COLUMNAS DE COSTO CON SISTEMA MULTI-TENANT */}
+                        <TableCell className="text-right">
+                          ${costos.retellCost.toFixed(4)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          ${costos.costoLlamada.toFixed(4)}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          ${costos.costoTotal.toFixed(4)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
-            </TableBody>
+              </TableBody>
             </Table>
           </div>
         </CardContent>

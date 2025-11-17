@@ -163,9 +163,9 @@ export const DashboardTabs = ({ data, loading }: DashboardTabsProps) => {
               </CardContent>
             </Card>
             
-            <Card className="shadow-metric">
+            <Card className="shadow-metric bg-card border-border">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-card-foreground">
                   <span>💰</span> Distribución de Costos por País
                 </CardTitle>
               </CardHeader>
@@ -175,17 +175,23 @@ export const DashboardTabs = ({ data, loading }: DashboardTabsProps) => {
                     {/* Mini gráfico de costos por país para el resumen */}
                     {data.costMetrics && data.costMetrics.costoPorPais.length > 0 ? (
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {data.costMetrics.costoPorPais.slice(0, 4).map((pais, index) => (
-                          <div key={index} className="text-center p-3 bg-blue-50 rounded-lg">
-                            <div className="text-lg font-semibold">
-                              {pais.bandera || '🌍'}  {/* ← BANDERA DINÁMICA */}
+                        {data.costMetrics.costoPorPais.slice(0, 4).map((pais, index) => {
+                          // Calcular el porcentaje manualmente
+                          const totalCost = data.costMetrics?.costoPorPais.reduce((sum, p) => sum + p.costo, 0) || 1;
+                          const porcentaje = (pais.costo / totalCost) * 100;
+                          
+                          return (
+                            <div key={index} className="text-center p-3 bg-accent border border-border rounded-lg">
+                              <div className="text-lg font-semibold text-card-foreground">
+                                {pais.bandera || '🌍'}  {/* ← BANDERA DINÁMICA */}
+                              </div>
+                              <div className="text-sm font-bold text-card-foreground">${pais.costo.toFixed(2)}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {porcentaje.toFixed(1)}% • {pais.llamadas} llamadas
+                              </div>
                             </div>
-                            <div className="text-sm font-bold">${pais.costo.toFixed(2)}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {pais.llamadas.toFixed(1)}% • {pais.llamadas} llamadas
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="h-full flex items-center justify-center text-muted-foreground">
@@ -240,25 +246,28 @@ export const DashboardTabs = ({ data, loading }: DashboardTabsProps) => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="bg-blue-50 rounded-lg p-4">
-                    <h4 className="font-semibold text-blue-900 mb-3">Resumen de Desconexiones</h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center p-2 bg-white rounded">
-                        <span className="text-sm">✅ Finalizadas normalmente</span>
-                        <strong className="text-green-600">{data.disconnectMetrics.byCategory.ended}</strong>
-                      </div>
-                      <div className="flex justify-between items-center p-2 bg-white rounded">
-                        <span className="text-sm">📞 No conectadas</span>
-                        <strong className="text-yellow-600">{data.disconnectMetrics.byCategory.not_connected}</strong>
-                      </div>
-                      <div className="flex justify-between items-center p-2 bg-white rounded">
-                        <span className="text-sm">❌ Errores</span>
-                        <strong className="text-red-600">{data.disconnectMetrics.byCategory.error}</strong>
-                      </div>
+                <div className="bg-accent border border-border rounded-lg p-4">
+                  <h4 className="font-semibold text-card-foreground mb-3">Resumen de Desconexiones</h4>
+                  <div className="space-y-3">
+                    {/* ✅ Finalizadas normalmente */}
+                    <div className="flex justify-between items-center p-3 bg-success/10 border border-success/20 rounded">
+                      <span className="text-sm text-card-foreground">✅ Finalizadas normalmente</span>
+                      <strong className="text-success text-lg font-bold">{data.disconnectMetrics.byCategory.ended}</strong>
+                    </div>
+                    
+                    {/* 📞 No conectadas */}
+                    <div className="flex justify-between items-center p-3 bg-info/10 border border-info/20 rounded">
+                      <span className="text-sm text-card-foreground">📞 No conectadas</span>
+                      <strong className="text-info text-lg font-bold">{data.disconnectMetrics.byCategory.not_connected}</strong>
+                    </div>
+                    
+                    {/* ❌ Errores */}
+                    <div className="flex justify-between items-center p-3 bg-danger/10 border border-danger/20 rounded">
+                      <span className="text-sm text-card-foreground">❌ Errores</span>
+                      <strong className="text-danger text-lg font-bold">{data.disconnectMetrics.byCategory.error}</strong>
                     </div>
                   </div>
-                  
+
                   <DisconnectionReasonsChart data={data.disconnectMetrics.reasons} />
                 </div>
               </CardContent>
@@ -366,25 +375,28 @@ export const DashboardTabs = ({ data, loading }: DashboardTabsProps) => {
             </Card>
           </div>
 
-          <Card className="shadow-metric">
+          <Card className="shadow-metric bg-card border-border">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-card-foreground">
                 <span>💡</span> Insights de Sentimiento
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-                <div className="p-4 bg-green-50 rounded-lg">
-                  <div className="text-2xl font-bold text-green-600">{data.sentiment.find(s => s.name === 'Positivo')?.value || 0}%</div>
-                  <div className="text-sm text-green-700">Positivo</div>
+                {/* Positivo */}
+                <div className="p-4 bg-success/10 border border-success/20 rounded-lg">
+                  <div className="text-2xl font-bold text-success">{data.sentiment.find(s => s.name === 'Positivo')?.value || 0}%</div>
+                  <div className="text-sm text-card-foreground">Positivo</div>
                 </div>
-                <div className="p-4 bg-yellow-50 rounded-lg">
-                  <div className="text-2xl font-bold text-yellow-600">{data.sentiment.find(s => s.name === 'Neutral')?.value || 0}%</div>
-                  <div className="text-sm text-yellow-700">Neutral</div>
+                {/* Neutral */}
+                <div className="p-4 bg-warning/10 border border-warning/20 rounded-lg">
+                  <div className="text-2xl font-bold text-warning">{data.sentiment.find(s => s.name === 'Neutral')?.value || 0}%</div>
+                  <div className="text-sm text-card-foreground">Neutral</div>
                 </div>
-                <div className="p-4 bg-red-50 rounded-lg">
-                  <div className="text-2xl font-bold text-red-600">{data.sentiment.find(s => s.name === 'Negativo')?.value || 0}%</div>
-                  <div className="text-sm text-red-700">Negativo</div>
+                {/* Negativo */}
+                <div className="p-4 bg-danger/10 border border-danger/20 rounded-lg">
+                  <div className="text-2xl font-bold text-danger">{data.sentiment.find(s => s.name === 'Negativo')?.value || 0}%</div>
+                  <div className="text-sm text-card-foreground">Negativo</div>
                 </div>
               </div>
             </CardContent>
@@ -409,52 +421,58 @@ export const DashboardTabs = ({ data, loading }: DashboardTabsProps) => {
   )}
 
           {/* Resumen de costos expandido */}
-          <Card className="shadow-metric">
+          <Card className="shadow-metric bg-card border-border">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-card-foreground">
                 <span>💎</span> Resumen de Costos Detallado
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
-                <div className="p-3 bg-blue-50 rounded-lg">
-                  <div className="text-lg font-bold text-blue-600">${data.costMetrics?.totalCosto.toFixed(2) || '0.00'}</div>
-                  <div className="text-xs text-blue-700">Costo Total</div>
+                {/* Costo Total */}
+                <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
+                  <div className="text-lg font-bold text-primary">${data.costMetrics?.totalCosto.toFixed(2) || '0.00'}</div>
+                  <div className="text-xs text-card-foreground">Costo Total</div>
                 </div>
-                <div className="p-3 bg-green-50 rounded-lg">
-                  <div className="text-lg font-bold text-green-600">${data.costMetrics?.costoPromedioPorLlamada.toFixed(4) || '0.0000'}</div>
-                  <div className="text-xs text-green-700">Promedio/Llamada</div>
+                {/* Promedio/Llamada */}
+                <div className="p-3 bg-success/10 border border-success/20 rounded-lg">
+                  <div className="text-lg font-bold text-success">${data.costMetrics?.costoPromedioPorLlamada.toFixed(4) || '0.0000'}</div>
+                  <div className="text-xs text-card-foreground">Promedio/Llamada</div>
                 </div>
-                <div className="p-3 bg-purple-50 rounded-lg">
-                  <div className="text-lg font-bold text-purple-600">${data.costMetrics?.costoPorMinuto.toFixed(4) || '0.0000'}
-                  </div>
-                  <div className="text-xs text-purple-700">Por Minuto</div>
+                {/* Por Minuto */}
+                <div className="p-3 bg-info/10 border border-info/20 rounded-lg">
+                  <div className="text-lg font-bold text-info">${data.costMetrics?.costoPorMinuto.toFixed(4) || '0.0000'}</div>
+                  <div className="text-xs text-card-foreground">Por Minuto</div>
                 </div>
-                <div className="p-3 bg-orange-50 rounded-lg">
-                  <div className="text-lg font-bold text-orange-600">{data.costMetrics?.costoPorAgente.length || 0}</div>
-                  <div className="text-xs text-orange-700">Agentes Activos</div>
+                {/* Agentes Activos */}
+                <div className="p-3 bg-warning/10 border border-warning/20 rounded-lg">
+                  <div className="text-lg font-bold text-warning">{data.costMetrics?.costoPorAgente.length || 0}</div>
+                  <div className="text-xs text-card-foreground">Agentes Activos</div>
                 </div>
               </div>
               
               {/* Estadísticas adicionales de países */}
               {data.costMetrics?.costoPorPais && data.costMetrics.costoPorPais.length > 0 && (
                 <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-                  <div className="p-3 bg-cyan-50 rounded-lg">
-                    <div className="text-lg font-bold text-cyan-600">{data.costMetrics.costoPorPais.length}</div>
-                    <div className="text-xs text-cyan-700">Países Activos</div>
+                  {/* Países Activos */}
+                  <div className="p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-lg">
+                    <div className="text-lg font-bold text-cyan-400">{data.costMetrics.costoPorPais.length}</div>
+                    <div className="text-xs text-card-foreground">Países Activos</div>
                   </div>
-                  <div className="p-3 bg-red-50 rounded-lg">
-                    <div className="text-lg font-bold text-red-600">
+                  {/* Costo Máximo por País */}
+                  <div className="p-3 bg-danger/10 border border-danger/20 rounded-lg">
+                    <div className="text-lg font-bold text-danger">
                       ${Math.max(...data.costMetrics.costoPorPais.map(p => p.costo)).toFixed(2)}
                     </div>
-                    <div className="text-xs text-red-700">Costo Máximo por País</div>
+                    <div className="text-xs text-card-foreground">Costo Máximo por País</div>
                   </div>
-                  <div className="p-3 bg-green-50 rounded-lg">
-                    <div className="text-lg font-bold text-green-600">
+                  {/* Máx. Llamadas por País */}
+                  <div className="p-3 bg-success/10 border border-success/20 rounded-lg">
+                    <div className="text-lg font-bold text-success">
                       {data.costMetrics.costoPorPais.reduce((max, pais) => 
                         pais.llamadas > max ? pais.llamadas : max, 0)}
                     </div>
-                    <div className="text-xs text-green-700">Máx. Llamadas por País</div>
+                    <div className="text-xs text-card-foreground">Máx. Llamadas por País</div>
                   </div>
                 </div>
               )}

@@ -3,12 +3,8 @@ import { NormalizedCall, InternalStatus, CallType, Sentiment } from '../types/no
 
 export class DataNormalizer {
   static normalizeCallData(rawData: any, clientId: string, allRawData?: any[]): NormalizedCall {
-
-    // ✅ Obtener mapeo con detección automática si es necesario
     const fieldMap = getFieldMapping(clientId, allRawData);
     const valueMap = getValueMapping(clientId);
-
-
     
     // Obtener valores raw
     const rawStatus = rawData[fieldMap.status];
@@ -20,13 +16,6 @@ export class DataNormalizer {
     const normalizedCallType = this.normalizeCallType(rawCallType, valueMap.call_type);
     const normalizedSentiment = this.normalizeSentiment(rawSentiment, valueMap.sentiment);
 
-   // console.log('🔍 NORMALIZACIÓN STATUS:', {
-   // rawStatus,
-   // normalizedStatus: this.normalizeValue(rawStatus, valueMap.status, 'failed'),
-   // valueMapping: valueMap.status
-    // });
-
-    
     return {
       // Campos principales con tipos específicos
       id: rawData[fieldMap.id] || '',
@@ -34,7 +23,11 @@ export class DataNormalizer {
       call_type: normalizedCallType,
       sentiment: normalizedSentiment,
       duration: this.parseNumber(rawData[fieldMap.duration]),
-      cost: this.parseNumber(rawData[fieldMap.cost]),
+      
+      // ✅ CAMBIO CRÍTICO: retell_cost como prioridad, cost siempre 0
+      retell_cost: this.parseNumber(rawData[fieldMap.retell_cost]), // ← PRINCIPAL
+      cost: this.parseNumber(rawData[fieldMap.cost]), // ← SECUNDARIO (para compatibilidad)
+      
       customer_phone: rawData[fieldMap.customer_phone] || '',
       country_code: rawData[fieldMap.country_code],
       country_name: rawData[fieldMap.country_name],
@@ -62,8 +55,6 @@ export class DataNormalizer {
       _raw: process.env.NODE_ENV === 'development' ? rawData : undefined,
       _client: clientId
     };
-
-
   }
   
   // Normalizar un array completo de llamadas

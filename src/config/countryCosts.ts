@@ -133,6 +133,7 @@ export const getCountryCost = (countryCode: string, clientId?: string): CountryC
   
   // Normalizar código del país
   const normalizedCode = countryCode.trim().toLowerCase();
+
   
   // Obtener configuración del cliente o usar cliente2 por defecto
   const clientConfig = COUNTRY_COST_CONFIGS[actualClientId] || COUNTRY_COST_CONFIGS['cliente2'];
@@ -231,7 +232,7 @@ export const parseDurationToMinutes = (durationStr: string | null): number => {
 
 
 // ✅ NECESITAMOS ESTA FUNCIÓN - Si no existe, créala
-const getCurrentClientId = (): string => {
+export const getCurrentClientId = (): string => {
   // Usar la lógica que ya tienes en tu proyecto
   const urlParams = new URLSearchParams(window.location.search);
   return urlParams.get('client') || 'cliente2'; // default a cliente2

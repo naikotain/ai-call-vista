@@ -20,24 +20,39 @@ interface SuccessByHourChartProps {
   loading?: boolean;
 }
 
+// Custom Tooltip para tema oscuro
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-card border border-border p-3 rounded-lg shadow-metric">
+        <p className="text-card-foreground font-medium">Hora: {label}</p>
+        <p className="text-success">Tasa de éxito: {data.successRate}%</p>
+        <p className="text-card-foreground">
+          {data.successfulCalls}/{data.totalCalls} llamadas exitosas
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
+
 export const SuccessByHourChart = ({ data, filters, loading = false }: SuccessByHourChartProps) => {
   const previousFilters = useRef(filters); // ✅ PARA DETECTAR CAMBIOS
 
   // ✅ DEBUG DE CAMBIOS EN FILTROS
   useEffect(() => {
-
     previousFilters.current = filters;
   }, [filters]);
 
   // ✅ DEBUG DE DATOS
   useEffect(() => {
-
   }, [data, loading, filters]);
 
   // Si no hay datos o está cargando, mostrar estado vacío
   if (loading || !data) {
     return (
-      <div className="h-80 w-full flex items-center justify-center border rounded-lg">
+      <div className="h-80 w-full flex items-center justify-center border border-border rounded-lg bg-card">
         <div className="text-muted-foreground">Cargando datos de éxito por hora...</div>
       </div>
     );
@@ -45,10 +60,9 @@ export const SuccessByHourChart = ({ data, filters, loading = false }: SuccessBy
 
   const successByHour = data || [];
 
-
   if (successByHour.length === 0) {
     return (
-      <div className="h-80 w-full flex items-center justify-center border rounded-lg">
+      <div className="h-80 w-full flex items-center justify-center border border-border rounded-lg bg-card">
         <div className="text-muted-foreground">No hay datos de éxito por hora disponibles</div>
       </div>
     );
@@ -75,8 +89,6 @@ export const SuccessByHourChart = ({ data, filters, loading = false }: SuccessBy
     const totalCalls = hoursWithCalls.reduce((sum, hour) => sum + hour.totalCalls, 0);
     const overallSuccessRate = totalCalls > 0 ? Math.round((totalSuccessful / totalCalls) * 100) : 0;
 
- 
-
     return {
       bestHour,
       worstHour, 
@@ -102,28 +114,34 @@ export const SuccessByHourChart = ({ data, filters, loading = false }: SuccessBy
   };
 
   return (
-    <div className="h-80 w-full">
+    <div className="h-80 w-full p-4 bg-card border border-border rounded-lg">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold">Tasa de Éxito por Hora</h3>
+        <h3 className="text-lg font-semibold text-card-foreground">Tasa de Éxito por Hora</h3>
         <div className="text-sm text-muted-foreground">
           {getActiveFiltersText()}
         </div>
       </div>
 
-      {/* ✅ AGREGAR INSIGHTS */}
+      {/* ✅ INSIGHTS CORREGIDOS PARA TEMA OSCURO */}
       {insights && (
         <div className="grid grid-cols-3 gap-2 mb-4 text-xs">
-          <div className="bg-green-50 p-2 rounded border">
-            <div className="font-medium text-green-700">Mejor hora</div>
-            <div>{insights.bestHour.hour} ({insights.bestHour.successRate}%)</div>
+          <div className="bg-success/10 p-2 rounded border border-success/20">
+            <div className="font-medium text-success">Mejor hora</div>
+            <div className="text-card-foreground">
+              {insights.bestHour.hour} ({insights.bestHour.successRate}%)
+            </div>
           </div>
-          <div className="bg-red-50 p-2 rounded border">
-            <div className="font-medium text-red-700">Peor hora</div>
-            <div>{insights.worstHour.hour} ({insights.worstHour.successRate}%)</div>
+          <div className="bg-danger/10 p-2 rounded border border-danger/20">
+            <div className="font-medium text-danger">Peor hora</div>
+            <div className="text-card-foreground">
+              {insights.worstHour.hour} ({insights.worstHour.successRate}%)
+            </div>
           </div>
-          <div className="bg-blue-50 p-2 rounded border">
-            <div className="font-medium text-blue-700">Tasa general</div>
-            <div>{insights.overallSuccessRate}% ({insights.totalCalls} llamadas)</div>
+          <div className="bg-primary/10 p-2 rounded border border-primary/20">
+            <div className="font-medium text-primary">Tasa general</div>
+            <div className="text-card-foreground">
+              {insights.overallSuccessRate}% ({insights.totalCalls} llamadas)
+            </div>
           </div>
         </div>
       )}
@@ -139,28 +157,18 @@ export const SuccessByHourChart = ({ data, filters, loading = false }: SuccessBy
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
           <XAxis 
             dataKey="hour" 
-            stroke="hsl(var(--muted-foreground))"
+            stroke="hsl(var(--card-foreground))"
             fontSize={12}
+            tick={{ fill: 'hsl(var(--card-foreground))' }}
           />
           <YAxis 
-            stroke="hsl(var(--muted-foreground))"
+            stroke="hsl(var(--card-foreground))"
             fontSize={12}
             domain={[0, 100]}
             tickFormatter={(value) => `${value}%`}
+            tick={{ fill: 'hsl(var(--card-foreground))' }}
           />
-          <Tooltip 
-            formatter={(value: number, name: string) => {
-              if (name === 'successRate') return [`${value}%`, 'Tasa de éxito'];
-              return [value, name === 'successfulCalls' ? 'Llamadas exitosas' : 'Total llamadas'];
-            }}
-            labelFormatter={(label, payload) => {
-              if (payload && payload[0]) {
-                const data = payload[0].payload;
-                return `Hora: ${label} (${data.successfulCalls}/${data.totalCalls} exitosas)`;
-              }
-              return `Hora: ${label}`;
-            }}
-          />
+          <Tooltip content={<CustomTooltip />} />
           <Area
             type="monotone"
             dataKey="successRate"
@@ -168,8 +176,18 @@ export const SuccessByHourChart = ({ data, filters, loading = false }: SuccessBy
             fillOpacity={1}
             fill="url(#successGradient)"
             strokeWidth={2}
-            dot={{ fill: 'hsl(var(--success))', strokeWidth: 2, r: 4 }}
-            activeDot={{ r: 6, fill: 'hsl(var(--success))' }}
+            dot={{ 
+              fill: 'hsl(var(--success))', 
+              stroke: 'hsl(var(--card))',
+              strokeWidth: 2, 
+              r: 4 
+            }}
+            activeDot={{ 
+              r: 6, 
+              fill: 'hsl(var(--success))',
+              stroke: 'hsl(var(--card))',
+              strokeWidth: 2
+            }}
           />
         </AreaChart>
       </ResponsiveContainer>

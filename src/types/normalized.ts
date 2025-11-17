@@ -12,6 +12,7 @@ export interface NormalizedCall {
   sentiment?: Sentiment;
   duration: number;
   cost: number;
+  retell_cost?: number;
   customer_phone: string;
   country_code?: string;
   country_name?: string;

@@ -1,6 +1,6 @@
 import { AutoFieldDetector } from './auto-field-detector';
 
-// Mapeo base que funciona para la mayoría de casos
+// Mapeo base CORREGIDO
 export const BASE_FIELD_MAPPINGS = {
   // Campos principales
   id: 'id',
@@ -8,7 +8,11 @@ export const BASE_FIELD_MAPPINGS = {
   call_type: 'tipo_de_llamada',
   sentiment: 'sentiment',
   duration: 'duration',
-  cost: 'retell_cost',
+  
+  // ✅ CORRECCIÓN: retell_cost y cost como campos SEPARADOS
+  retell_cost: 'retell_cost', // ← NUEVO campo para el costo de Retell AI
+  cost: 'cost', // ← Mantener para compatibilidad, pero será 0
+  
   customer_phone: 'customer_phone',
   country_code: 'country_code',
   country_name: 'country_name',

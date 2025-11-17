@@ -13,10 +13,32 @@ interface DisconnectionReasonsChartProps {
   data: DisconnectionReason[];
 }
 
+// Colores optimizados para tema oscuro usando variables CSS
 const CATEGORY_COLORS = {
-  ended: '#10B981',    // Verde
-  not_connected: '#3B82F6', // Azul
-  error: '#EF4444'     // Rojo
+  ended: 'hsl(var(--success))',      // Verde
+  not_connected: 'hsl(var(--info))', // Azul info
+  error: 'hsl(var(--danger))'        // Rojo
+};
+
+// Custom Tooltip para tema oscuro
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-card border border-border p-3 rounded-lg shadow-metric">
+        <p className="text-card-foreground font-medium">{label}</p>
+        <p className="text-card-foreground">
+          {payload[0].value} llamadas ({data.percentage}%)
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
+
+// Custom Legend para tema oscuro
+const renderColorfulLegendText = (value: string) => {
+  return <span className="text-card-foreground text-sm">{value}</span>;
 };
 
 const getFriendlyReasonName = (reason: string): string => {
@@ -58,9 +80,9 @@ const getFriendlyReasonName = (reason: string): string => {
 export const DisconnectionReasonsChart: React.FC<DisconnectionReasonsChartProps> = ({ data }) => {
   if (!data || data.length === 0) {
     return (
-      <Card>
+      <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle>Razones de Desconexión</CardTitle>
+          <CardTitle className="text-card-foreground">Razones de Desconexión</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground text-center py-8">
@@ -86,17 +108,20 @@ export const DisconnectionReasonsChart: React.FC<DisconnectionReasonsChartProps>
   }));
 
   return (
-    <Card className="mt-6">
+    <Card className="mt-6 bg-card border-border">
       <CardHeader>
-        <CardTitle>Razones de Desconexión</CardTitle>
+        <CardTitle className="text-card-foreground">Razones de Desconexión</CardTitle>
       </CardHeader>
       <CardContent>
-        {/* Resumen por Categorías */}
+        {/* Resumen por Categorías - CORREGIDO */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           {categoryData.map((category, index) => (
-            <div key={index} className="bg-muted p-4 rounded-lg text-center">
-              <div className="text-2xl font-bold">{category.count}</div>
-              <div className="text-sm capitalize">
+            <div 
+              key={index} 
+              className="bg-accent p-4 rounded-lg text-center border border-border"
+            >
+              <div className="text-2xl font-bold text-card-foreground">{category.count}</div>
+              <div className="text-sm text-card-foreground capitalize">
                 {category.category === 'ended' ? 'Finalizadas' : 
                  category.category === 'not_connected' ? 'No Conectadas' : 'Errores'}
               </div>
@@ -105,39 +130,40 @@ export const DisconnectionReasonsChart: React.FC<DisconnectionReasonsChartProps>
           ))}
         </div>
 
-        {/* Gráfico de categorías */}
+        {/* Gráfico de categorías - CORREGIDO */}
         <div className="mb-8">
-          <h4 className="text-lg font-medium mb-4">Distribución por Categoría</h4>
+          <h4 className="text-lg font-medium mb-4 text-card-foreground">Distribución por Categoría</h4>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={categoryData}>
-              <CartesianGrid strokeDasharray="3 3" />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis 
                 dataKey="category" 
                 tickFormatter={(value) => 
                   value === 'ended' ? 'Finalizadas' : 
                   value === 'not_connected' ? 'No Conectadas' : 'Errores'
-                } 
-              />
-              <YAxis />
-              <Tooltip 
-                formatter={(value) => [`${value} llamadas`, 'Cantidad']}
-                labelFormatter={(value) => 
-                  value === 'ended' ? 'Llamadas Finalizadas' : 
-                  value === 'not_connected' ? 'Llamadas No Conectadas' : 'Llamadas con Error'
                 }
+                stroke="hsl(var(--card-foreground))"
+                fontSize={12}
+                tick={{ fill: 'hsl(var(--card-foreground))' }}
               />
+              <YAxis 
+                stroke="hsl(var(--card-foreground))"
+                fontSize={12}
+                tick={{ fill: 'hsl(var(--card-foreground))' }}
+              />
+              <Tooltip content={<CustomTooltip />} />
               <Bar 
                 dataKey="count" 
-                fill="#8884d8" 
+                fill="hsl(var(--primary))" 
                 name="Cantidad de Llamadas"
               />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Gráfico circular por razones específicas */}
+        {/* Gráfico circular por razones específicas - CORREGIDO */}
         <div className="mb-8">
-          <h4 className="text-lg font-medium mb-4">Razones Específicas</h4>
+          <h4 className="text-lg font-medium mb-4 text-card-foreground">Razones Específicas</h4>
           <ResponsiveContainer width="100%" height={400}>
             <PieChart>
               <Pie
@@ -145,46 +171,67 @@ export const DisconnectionReasonsChart: React.FC<DisconnectionReasonsChartProps>
                 cx="50%"
                 cy="50%"
                 outerRadius={100}
-                fill="#8884d8"
                 dataKey="count"
                 nameKey="reason"
-                label={({ reason, percentage }) => `${getFriendlyReasonName(reason)}: ${percentage}%`}
+                label={({ reason, percentage }) => 
+                  `${getFriendlyReasonName(reason)}: ${percentage}%`
+                }
+                labelLine={false}
               >
                 {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={CATEGORY_COLORS[entry.category as keyof typeof CATEGORY_COLORS]} />
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={CATEGORY_COLORS[entry.category as keyof typeof CATEGORY_COLORS]} 
+                  />
                 ))}
               </Pie>
               <Tooltip 
-                formatter={(value, name, props) => [
-                  `${value} llamadas (${props.payload.percentage}%)`,
-                  getFriendlyReasonName(props.payload.reason)
-                ]} 
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    const data = payload[0].payload;
+                    return (
+                      <div className="bg-card border border-border p-3 rounded-lg shadow-metric">
+                        <p className="text-card-foreground font-medium">
+                          {getFriendlyReasonName(data.reason)}
+                        </p>
+                        <p className="text-card-foreground">
+                          {data.count} llamadas ({data.percentage}%)
+                        </p>
+                        <p className="text-muted-foreground text-sm capitalize">
+                          {data.category === 'ended' ? 'Finalizada' : 
+                           data.category === 'not_connected' ? 'No Conectada' : 'Error'}
+                        </p>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
               />
-              <Legend formatter={(value) => getFriendlyReasonName(value)} />
+              <Legend formatter={renderColorfulLegendText} />
             </PieChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Tabla detallada */}
+        {/* Tabla detallada - CORREGIDA */}
         <div>
-          <h4 className="text-lg font-medium mb-4">Desglose Detallado</h4>
+          <h4 className="text-lg font-medium mb-4 text-card-foreground">Desglose Detallado</h4>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b">
-                  <th className="text-left p-2">Razón</th>
-                  <th className="text-right p-2">Cantidad</th>
-                  <th className="text-right p-2">Porcentaje</th>
-                  <th className="text-left p-2">Categoría</th>
+                <tr className="border-b border-border">
+                  <th className="text-left p-2 text-card-foreground">Razón</th>
+                  <th className="text-right p-2 text-card-foreground">Cantidad</th>
+                  <th className="text-right p-2 text-card-foreground">Porcentaje</th>
+                  <th className="text-left p-2 text-card-foreground">Categoría</th>
                 </tr>
               </thead>
               <tbody>
                 {data.map((item, index) => (
-                  <tr key={index} className="border-b">
-                    <td className="p-2">{getFriendlyReasonName(item.reason)}</td>
-                    <td className="text-right p-2">{item.count}</td>
-                    <td className="text-right p-2">{item.percentage}%</td>
-                    <td className="p-2 capitalize">
+                  <tr key={index} className="border-b border-border hover:bg-accent">
+                    <td className="p-2 text-card-foreground">{getFriendlyReasonName(item.reason)}</td>
+                    <td className="text-right p-2 text-card-foreground">{item.count}</td>
+                    <td className="text-right p-2 text-card-foreground">{item.percentage}%</td>
+                    <td className="p-2 text-card-foreground capitalize">
                       {item.category === 'ended' ? 'Finalizada' : 
                        item.category === 'not_connected' ? 'No Conectada' : 'Error'}
                     </td>

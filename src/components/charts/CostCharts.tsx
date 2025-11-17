@@ -48,13 +48,36 @@ interface CostChartsProps {
   loading?: boolean;
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
+// Colores optimizados para tema oscuro
+const COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning))', 'hsl(var(--danger))', 'hsl(var(--info))', '#8884D8'];
 const COUNTRY_COLORS: { [key: string]: string } = {
-  'Chile': '#0033A0',
-  'Argentina': '#74ACDF',
-  'México': '#006847',
-  'España': '#AA151B',
-  'Otros': '#666666'
+  'Chile': 'hsl(var(--primary))',
+  'Argentina': 'hsl(var(--success))',
+  'México': 'hsl(var(--warning))',
+  'España': 'hsl(var(--danger))',
+  'Otros': 'hsl(var(--muted-foreground))'
+};
+
+// Custom Tooltip para tema oscuro
+const CustomTooltip = ({ active, payload, label, formatter }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-card border border-border p-3 rounded-lg shadow-metric">
+        <p className="text-card-foreground font-medium">{label}</p>
+        {payload.map((entry: any, index: number) => (
+          <p key={index} className="text-card-foreground" style={{ color: entry.color }}>
+            {entry.name}: {formatter ? formatter(entry.value) : entry.value}
+          </p>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
+
+// Custom Legend para tema oscuro
+const renderColorfulLegendText = (value: string, entry: any) => {
+  return <span className="text-card-foreground text-sm">{value}</span>;
 };
 
 export const CostCharts = ({ costMetrics, loading = false }: CostChartsProps) => {
@@ -135,48 +158,71 @@ export const CostCharts = ({ costMetrics, loading = false }: CostChartsProps) =>
   // Función segura para formatear números
   const formatCurrency = (value: number) => `$${(value || 0).toFixed(4)}`;
 
+  // Custom Label para gráficos de pie
+  const renderCustomizedLabel = ({
+    cx, cy, midAngle, innerRadius, outerRadius, percent, name
+  }: any) => {
+    const RADIAN = Math.PI / 180;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+    return (
+      <text 
+        x={x} 
+        y={y} 
+        fill="hsl(var(--card-foreground))" 
+        textAnchor={x > cx ? 'start' : 'end'} 
+        dominantBaseline="central"
+        className="text-xs font-medium"
+      >
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Métricas Principales */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
+        <Card className="bg-card border-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Costo Total</CardTitle>
+            <CardTitle className="text-sm text-card-foreground">Costo Total</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(safeCostMetrics.totalCosto)}</div>
+            <div className="text-2xl font-bold text-card-foreground">{formatCurrency(safeCostMetrics.totalCosto)}</div>
             <p className="text-xs text-muted-foreground">Costo acumulado</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card border-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Costo Promedio/Llamada</CardTitle>
+            <CardTitle className="text-sm text-card-foreground">Costo Promedio/Llamada</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(safeCostMetrics.costoPromedioPorLlamada)}</div>
+            <div className="text-2xl font-bold text-card-foreground">{formatCurrency(safeCostMetrics.costoPromedioPorLlamada)}</div>
             <p className="text-xs text-muted-foreground">Por llamada</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card border-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Costo Retell AI</CardTitle>
+            <CardTitle className="text-sm text-card-foreground">Costo Retell AI</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(safeCostMetrics.desgloseCostos.totalRetell)}</div>
+            <div className="text-2xl font-bold text-card-foreground">{formatCurrency(safeCostMetrics.desgloseCostos.totalRetell)}</div>
             <p className="text-xs text-muted-foreground">
               {(safeCostMetrics.desgloseCostos.porcentajeRetell || 0).toFixed(1)}% del total
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card border-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Costo Llamadas</CardTitle>
+            <CardTitle className="text-sm text-card-foreground">Costo Llamadas</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(safeCostMetrics.desgloseCostos.totalLlamadas)}</div>
+            <div className="text-2xl font-bold text-card-foreground">{formatCurrency(safeCostMetrics.desgloseCostos.totalLlamadas)}</div>
             <p className="text-xs text-muted-foreground">
               {(safeCostMetrics.desgloseCostos.porcentajeLlamada || 0).toFixed(1)}% del total
             </p>
@@ -186,9 +232,9 @@ export const CostCharts = ({ costMetrics, loading = false }: CostChartsProps) =>
 
       {/* Gráficos de Costos por País */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
+        <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle>Distribución de Costos por País</CardTitle>
+            <CardTitle className="text-card-foreground">Distribución de Costos por País</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -198,7 +244,7 @@ export const CostCharts = ({ costMetrics, loading = false }: CostChartsProps) =>
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, porcentaje }) => `${name}: ${(porcentaje || 0).toFixed(1)}%`}
+                  label={renderCustomizedLabel}
                   outerRadius={80}
                   dataKey="costo"
                 >
@@ -210,32 +256,39 @@ export const CostCharts = ({ costMetrics, loading = false }: CostChartsProps) =>
                   ))}
                 </Pie>
                 <Tooltip 
-                  formatter={(value: number) => [formatCurrency(value), 'Costo']}
+                  content={<CustomTooltip formatter={formatCurrency} />}
                 />
-                <Legend />
+                <Legend formatter={renderColorfulLegendText} />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle>Costo por País</CardTitle>
+            <CardTitle className="text-card-foreground">Costo por País</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={paisData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip 
-                  formatter={(value: number) => [formatCurrency(value), 'Costo']}
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis 
+                  dataKey="name" 
+                  stroke="hsl(var(--card-foreground))"
+                  fontSize={12}
                 />
-                <Legend />
+                <YAxis 
+                  stroke="hsl(var(--card-foreground))"
+                  fontSize={12}
+                />
+                <Tooltip 
+                  content={<CustomTooltip formatter={formatCurrency} />}
+                />
+                <Legend formatter={renderColorfulLegendText} />
                 <Bar 
                   dataKey="costo" 
                   name="Costo Total"
-                  fill="#3b82f6"
+                  fill="hsl(var(--primary))"
                 />
               </BarChart>
             </ResponsiveContainer>
@@ -245,9 +298,9 @@ export const CostCharts = ({ costMetrics, loading = false }: CostChartsProps) =>
 
       {/* Gráficos de Desglose */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
+        <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle>Desglose de Costos</CardTitle>
+            <CardTitle className="text-card-foreground">Desglose de Costos</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -257,7 +310,7 @@ export const CostCharts = ({ costMetrics, loading = false }: CostChartsProps) =>
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, porcentaje }) => `${name}: ${(porcentaje || 0).toFixed(1)}%`}
+                  label={renderCustomizedLabel}
                   outerRadius={80}
                   dataKey="value"
                 >
@@ -265,8 +318,8 @@ export const CostCharts = ({ costMetrics, loading = false }: CostChartsProps) =>
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value: number) => [formatCurrency(value), 'Costo']} />
-                <Legend />
+                <Tooltip content={<CustomTooltip formatter={formatCurrency} />} />
+                <Legend formatter={renderColorfulLegendText} />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
@@ -274,22 +327,29 @@ export const CostCharts = ({ costMetrics, loading = false }: CostChartsProps) =>
 
         {/* Tendencia de costos - Solo si hay datos */}
         {safeCostMetrics.tendenciaCostos.length > 0 && (
-          <Card>
+          <Card className="bg-card border-border">
             <CardHeader>
-              <CardTitle>Tendencia de Costos</CardTitle>
+              <CardTitle className="text-card-foreground">Tendencia de Costos</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={safeCostMetrics.tendenciaCostos}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="fecha" />
-                  <YAxis />
-                  <Tooltip formatter={(value: number) => [formatCurrency(value), 'Costo']} />
-                  <Legend />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis 
+                    dataKey="fecha" 
+                    stroke="hsl(var(--card-foreground))"
+                    fontSize={12}
+                  />
+                  <YAxis 
+                    stroke="hsl(var(--card-foreground))"
+                    fontSize={12}
+                  />
+                  <Tooltip content={<CustomTooltip formatter={formatCurrency} />} />
+                  <Legend formatter={renderColorfulLegendText} />
                   <Line 
                     type="monotone" 
                     dataKey="costo" 
-                    stroke="#3b82f6" 
+                    stroke="hsl(var(--primary))" 
                     name="Costo Total"
                     strokeWidth={2}
                   />
@@ -303,28 +363,35 @@ export const CostCharts = ({ costMetrics, loading = false }: CostChartsProps) =>
       {/* Gráficos por Agente y Tipo */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {agentData.length > 0 && (
-          <Card>
+          <Card className="bg-card border-border">
             <CardHeader>
-              <CardTitle>Costo por Agente</CardTitle>
+              <CardTitle className="text-card-foreground">Costo por Agente</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={agentData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip formatter={(value: number) => [formatCurrency(value), 'Costo']} />
-                  <Legend />
-                  <Bar dataKey="costo" fill="#3b82f6" name="Costo Total" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis 
+                    dataKey="name" 
+                    stroke="hsl(var(--card-foreground))"
+                    fontSize={12}
+                  />
+                  <YAxis 
+                    stroke="hsl(var(--card-foreground))"
+                    fontSize={12}
+                  />
+                  <Tooltip content={<CustomTooltip formatter={formatCurrency} />} />
+                  <Legend formatter={renderColorfulLegendText} />
+                  <Bar dataKey="costo" fill="hsl(var(--primary))" name="Costo Total" />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
         )}
 
-        <Card>
+        <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle>Costo por Tipo de Llamada</CardTitle>
+            <CardTitle className="text-card-foreground">Costo por Tipo de Llamada</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -334,7 +401,7 @@ export const CostCharts = ({ costMetrics, loading = false }: CostChartsProps) =>
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, costo }) => `${name}: ${formatCurrency(costo)}`}
+                  label={renderCustomizedLabel}
                   outerRadius={80}
                   dataKey="costo"
                 >
@@ -342,8 +409,8 @@ export const CostCharts = ({ costMetrics, loading = false }: CostChartsProps) =>
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value: number) => [formatCurrency(value), 'Costo']} />
-                <Legend />
+                <Tooltip content={<CustomTooltip formatter={formatCurrency} />} />
+                <Legend formatter={renderColorfulLegendText} />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
@@ -354,28 +421,28 @@ export const CostCharts = ({ costMetrics, loading = false }: CostChartsProps) =>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Tabla de costos por país */}
         {paisData.length > 0 && (
-          <Card>
+          <Card className="bg-card border-border">
             <CardHeader>
-              <CardTitle>Costos por País</CardTitle>
+              <CardTitle className="text-card-foreground">Costos por País</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-2">País</th>
-                      <th className="text-right py-2">Llamadas</th>
-                      <th className="text-right py-2">Costo Total</th>
-                      <th className="text-right py-2">% del Total</th>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-2 text-card-foreground">País</th>
+                      <th className="text-right py-2 text-card-foreground">Llamadas</th>
+                      <th className="text-right py-2 text-card-foreground">Costo Total</th>
+                      <th className="text-right py-2 text-card-foreground">% del Total</th>
                     </tr>
                   </thead>
                   <tbody>
                     {paisData.map((pais, index) => (
-                      <tr key={index} className="border-b hover:bg-gray-50">
-                        <td className="py-2 font-medium">{pais.name}</td>
-                        <td className="text-right py-2">{pais.llamadas}</td>
-                        <td className="text-right py-2">{formatCurrency(pais.costo)}</td>
-                        <td className="text-right py-2">{(pais.porcentaje || 0).toFixed(1)}%</td>
+                      <tr key={index} className="border-b border-border hover:bg-accent">
+                        <td className="py-2 font-medium text-card-foreground">{pais.name}</td>
+                        <td className="text-right py-2 text-card-foreground">{pais.llamadas}</td>
+                        <td className="text-right py-2 text-card-foreground">{formatCurrency(pais.costo)}</td>
+                        <td className="text-right py-2 text-card-foreground">{(pais.porcentaje || 0).toFixed(1)}%</td>
                       </tr>
                     ))}
                   </tbody>
@@ -387,26 +454,26 @@ export const CostCharts = ({ costMetrics, loading = false }: CostChartsProps) =>
 
         {/* Tabla de costos por agente */}
         {agentData.length > 0 && (
-          <Card>
+          <Card className="bg-card border-border">
             <CardHeader>
-              <CardTitle>Costos por Agente</CardTitle>
+              <CardTitle className="text-card-foreground">Costos por Agente</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-2">Agente</th>
-                      <th className="text-right py-2">Llamadas</th>
-                      <th className="text-right py-2">Costo Total</th>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-2 text-card-foreground">Agente</th>
+                      <th className="text-right py-2 text-card-foreground">Llamadas</th>
+                      <th className="text-right py-2 text-card-foreground">Costo Total</th>
                     </tr>
                   </thead>
                   <tbody>
                     {agentData.map((agent, index) => (
-                      <tr key={index} className="border-b hover:bg-gray-50">
-                        <td className="py-2">{agent.name}</td>
-                        <td className="text-right py-2">{agent.llamadas}</td>
-                        <td className="text-right py-2">{formatCurrency(agent.costo)}</td>
+                      <tr key={index} className="border-b border-border hover:bg-accent">
+                        <td className="py-2 text-card-foreground">{agent.name}</td>
+                        <td className="text-right py-2 text-card-foreground">{agent.llamadas}</td>
+                        <td className="text-right py-2 text-card-foreground">{formatCurrency(agent.costo)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -417,18 +484,21 @@ export const CostCharts = ({ costMetrics, loading = false }: CostChartsProps) =>
         )}
       </div>
 
-      {/* Costo por Día de la Semana */}
+      {/* Costo por Día de la Semana - CORREGIDO */}
       {safeCostMetrics.costoPorDia.length > 0 && (
-        <Card>
+        <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle>Costos por Día de la Semana</CardTitle>
+            <CardTitle className="text-card-foreground">Costos por Día de la Semana</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
               {safeCostMetrics.costoPorDia.map((dia, index) => (
-                <div key={index} className="text-center p-3 bg-blue-50 rounded-lg">
-                  <div className="font-semibold text-sm">{dia.name}</div>
-                  <div className="text-lg font-bold">{formatCurrency(dia.costo || 0)}</div>
+                <div 
+                  key={index} 
+                  className="text-center p-3 bg-accent border border-border rounded-lg"
+                >
+                  <div className="font-semibold text-sm text-card-foreground">{dia.name}</div>
+                  <div className="text-lg font-bold text-card-foreground">{formatCurrency(dia.costo || 0)}</div>
                 </div>
               ))}
             </div>

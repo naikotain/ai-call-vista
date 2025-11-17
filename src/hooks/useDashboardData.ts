@@ -691,6 +691,16 @@ const getInboundOutboundByDayOfMonth = (calls: Call[]) => {
 const calcularCostosConSistemaPais = (calls: Call[]) => {
   const clientId = getCurrentClient();
 
+ console.log('🔍 DEBUG CLIENTE REAL:', {
+    clientId,
+    totalLlamadas: calls.length,
+    llamadasConRetellCost: calls.filter(call => call.retell_cost > 0).length,
+    llamadasConDuracion: calls.filter(call => call.duration && call.duration > 0).length
+  });
+
+
+
+
   let totalCosto = 0;
   let totalRetellCost = 0;
   let totalCallCost = 0;
@@ -702,10 +712,44 @@ const calcularCostosConSistemaPais = (calls: Call[]) => {
   const costoPorDia: Record<string, number> = {};
   const minutosPorDia: Record<string, number> = {};
 
-  calls.forEach(call => {
+  const llamadasConCosto = calls.filter(call => call.retell_cost > 0);
+  console.log('💰 LAS 28 LLAMADAS CON COSTO:', llamadasConCosto.slice(0, 5).map(call => ({
+    id: call.id,
+    retell_cost: call.retell_cost,
+    duration: call.duration,
+    country_code: call.country_code
+  })));
+
+
+  calls.forEach((call, index) => {
+
     const rawCountryCode = call.country_code || 'CL';
     const countryCode = rawCountryCode.trim().toLowerCase();
-    const retellCost = call.cost || 0;
+    const retellCost = call.retell_cost || 0;
+
+ // ✅ DEBUG SOLO PARA LAS LLAMADAS CON COSTO
+  if (retellCost > 0) {
+    const countryConfig = getCountryCost(countryCode, clientId);
+    const minutos = parseDuration(call.duration?.toString() || '0m') / 60;
+    
+    console.log('💰 DEBUG LLAMADA CON COSTO - cliente1:', {
+      clientId,
+      callId: call.id,
+      retell_cost: retellCost,
+      duration: call.duration,
+      durationMinutes: minutos,
+      countryCode,
+      costPerMinute: countryConfig.costPerMinute,  // ← ESTO ES LO CRÍTICO
+      costoCalculadoLlamada: minutos * countryConfig.costPerMinute,
+      // ✅ Ver también qué devuelve calculateCallCost
+      calculateCallCostResult: calculateCallCost(
+        retellCost, 
+        call.duration?.toString() || '0m', 
+        countryCode,
+        clientId
+      )
+    });
+  }
 
 
     
@@ -713,21 +757,16 @@ const calcularCostosConSistemaPais = (calls: Call[]) => {
     let costoTotal = 0;
     let costoLlamada = 0;
     
-    if (clientId === 'cliente1' && countryCode === 'arg') {
-      // ✅ SOLO para cliente1 + Argentina: Solo Retell cost (costo llamada = 0)
-      costoTotal = retellCost;
-      costoLlamada = 0;
-    } else {
-      // ✅ Para TODOS los demás casos (cliente2, cliente1 con otros países): Costos normales
-      costoTotal = calculateCallCost(
-        retellCost, 
-        call.duration?.toString() || '0m', 
-        countryCode,
-        clientId
-      );
-      costoLlamada = costoTotal - retellCost;
-    }
-    
+// ✅ USAR SIEMPRE EL CÁLCULO NORMAL (que respeta countryCosts.ts)
+    costoTotal = calculateCallCost(
+      retellCost, 
+      call.duration?.toString() || '0m', 
+      countryCode,
+      clientId
+    );
+    costoLlamada = costoTotal - retellCost;
+
+
     const minutos = parseDuration(call.duration?.toString() || '0m') / 60;
     
     totalCosto += costoTotal;
