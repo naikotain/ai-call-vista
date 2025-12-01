@@ -1,5 +1,5 @@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
-import { log } from '@/utils/simple-logger';
+import { log } from '@/lib/simple-logger';
 
 interface CallVolumeChartProps {
   data: Array<{ name: string; calls: number }>;

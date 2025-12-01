@@ -1,6 +1,6 @@
-import { OSDOPClientData, AdditionalDataFilters } from '../types/additional-data';
+import { OSDOPClientData, AdditionalDataFilters } from '../types/normalized';
 import { CLIENT_CONFIGS } from '../config/clients';
-import { getSupabaseClient } from '../integrations/supabase/multi-client';
+import { getSupabaseClient } from '@/lib/supabase-client';
 
 export class OSDOPDataService {
   static async getOSDOPData(

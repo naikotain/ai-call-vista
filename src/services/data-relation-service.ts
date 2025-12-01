@@ -1,9 +1,11 @@
-import { getSupabaseClient } from '../lib/supabase';
-import { log } from '@/utils/simple-logger';
+import { getSupabaseClient } from '@/lib/supabase-client';
+import { log } from '@/lib/simple-logger';
 import { 
   NormalizedCall, 
   CallWithAdditionalData, 
-  AdditionalDataWithCall
+  AdditionalDataWithCall,
+  AdditionalClientData,
+  RelationshipStats // ✅ NUEVO IMPORT
 } from '../types/normalized';
 
 export class DataRelationService {

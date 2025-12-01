@@ -91,35 +91,35 @@ export const COUNTRY_COST_CONFIGS: Record<string, Record<string, CountryCost>> =
     'cl': {
       code: 'cl',
       name: 'Chile',
-      costPerMinute: 0.04,
+      costPerMinute: 0,
       currency: 'USD',
       flag: '🇨🇱'
     },
     'arg': {
       code: 'arg',
       name: 'Argentina',
-      costPerMinute: 0.0019,
+      costPerMinute: 0,
       currency: 'USD',
       flag: '🇦🇷'
     },
     'mx': {
       code: 'mx',
       name: 'México',
-      costPerMinute: 0.02,
+      costPerMinute: 0,
       currency: 'USD',
       flag: '🇲🇽'
     },
     'esp': {
       code: 'esp',
       name: 'España',
-      costPerMinute: 0.91,
+      costPerMinute: 0,
       currency: 'USD',
       flag: '🇪🇸'
     },
     '*': { // ✅ WILDCARD PARA PAÍSES COMO GB, US, ETC.
       code: '*',
       name: 'Otros Países',
-      costPerMinute: 0.05, // ✅ Costo por defecto
+      costPerMinute: 0, // ✅ Costo por defecto
       currency: 'USD',
       flag: '🏳️'
     }

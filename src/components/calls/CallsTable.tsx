@@ -3,8 +3,8 @@
 
 import { DashboardFilters } from '@/hooks/useDashboardData';
 import { useState, useEffect } from 'react';
-import { useSupabase } from '@/integrations/supabase/multi-client';
-import { Database } from '@/integrations/supabase/types';
+import { useSupabase } from '@/lib/supabase-client';
+import { Database } from '@/types/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';

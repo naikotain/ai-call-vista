@@ -44,15 +44,15 @@ export interface NormalizedCall {
   _client?: string;
 }
 
-// Tipo para datos adicionales del cliente
+// Tipo para datos adicionales del cliente - VERSIÓN COMPLETA CORREGIDA
 export interface AdditionalClientData {
   id: string;
   created_at: string;
-  call_id?: string; // FK a calls (legacy)
-  call_id_retell?: string; // ✅ NUEVO CAMPO PARA RELACIÓN
+  call_id?: string;
+  call_id_retell?: string;
   client_id: string;
   
-  // Campos fijos para OSDOP
+  // Campos OSDOP específicos
   nombre?: string;
   segundo_nombre?: string;
   telefono?: string;
@@ -68,10 +68,49 @@ export interface AdditionalClientData {
   canal_contacto?: string;
   detalle_reclamo?: string;
   
-  // Campos flexibles para otros clientes
+  // Campos flexibles para todos los clientes
   custom_fields?: Record<string, any>;
   data_source?: string;
   is_visible?: boolean;
+  
+  // ✅ CAMPOS ADICIONALES PARA COMPATIBILIDAD TOTAL:
+  // Campos de llamada que pueden estar en datos adicionales
+  customer_phone?: string;
+  duration?: string | number;
+  started_at?: string;
+  status?: string;
+  agent_name?: string;
+  
+  // Campos de ubicación
+  country_code?: string;
+  country_name?: string;
+  
+  // Campos de transcripción
+  transcription?: string;
+  resumen_llamada?: string;
+  
+  // Campos de agente
+  agent_id?: string;
+  numero_agente?: string;
+  
+  // Campos de costo
+  cost?: number;
+  
+  // Campos técnicos
+  channel?: string;
+  objetivo_de_la_llamada?: string;
+  latency?: number;
+  sentiment?: string;
+  
+  // ✅ CAMPOS ESPECÍFICOS DE TU SCHEMA ORIGINAL:
+  api?: string; // agent_id
+  tipo_de_llamada?: string;
+  ended_at?: string;
+  date?: string;
+  disconnect_reason?: string;
+  
+  // ✅ CUALQUIER OTRO CAMPO QUE PUEDA APARECER
+  [key: string]: any; // Para campos dinámicos
 }
 
 // Tipos para datos relacionados
@@ -97,3 +136,44 @@ export const isAdditionalClientData = (data: any): data is AdditionalClientData 
          typeof data.id === 'string' && 
          typeof data.client_id === 'string';
 };
+
+// ✅ NUEVO: Tipo para respuesta de Supabase con datos adicionales
+export interface SupabaseAdditionalDataResponse {
+  data: AdditionalClientData[] | null;
+  error: any;
+}
+
+// ✅ NUEVO: Tipo para respuesta de Supabase con llamadas
+export interface SupabaseCallsResponse {
+  data: any[] | null;
+  error: any;
+}
+
+// ✅ NUEVO: Tipo para estadísticas de relación
+export interface RelationshipStats {
+  totalCalls: number;
+  totalAdditional: number;
+  callsWithRetellId: number;
+  additionalWithRetellId: number;
+  matchedRelations: number;
+  matchRate: number;
+}
+
+// ✅ AGREGAR AL FINAL:
+export interface OSDOPClientData extends AdditionalClientData {
+  // Compatibilidad con código existente
+}
+
+export interface GenericClientData extends AdditionalClientData {
+  // Para otros clientes
+}
+
+export interface AdditionalDataFilters {
+  estado_tramite?: string;
+  tipo_tramite?: string;
+  canal_contacto?: string;
+  localidad?: string;
+  data_source?: string;
+  fecha_inicio?: string;
+  fecha_fin?: string;
+}

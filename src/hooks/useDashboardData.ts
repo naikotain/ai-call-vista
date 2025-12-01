@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useSupabase } from '@/integrations/supabase/multi-client';
-import { Database } from '@/integrations/supabase/types';
+import { useSupabase } from '@/lib/supabase-client';
+import { Database } from '@/types/supabase';
 import { 
   COUNTRY_COST_CONFIGS, 
   calculateCallCost, 
@@ -22,7 +22,7 @@ import {
 import { getFieldMapping } from '@/config/field-mappings';
 
 // Logger centralizado
-import { log } from '@/utils/simple-logger';
+import { log } from '@/lib/simple-logger';
 import { categorizeDisconnectReason } from '@/config/disconnect-categories';
 
 // Usar el tipo normalizado

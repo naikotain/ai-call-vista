@@ -9,7 +9,7 @@ import { OSDOPDataTable } from "@/components/additional-data/OSDOPDataTable"; //
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
-import { testNormalizer } from '../utils/test-normalizer';
+import { testNormalizer } from '../lib/test-normalizer';
 
 const Index = () => {
   const { data, agents, loading, filters, updateData } = useDashboardData();

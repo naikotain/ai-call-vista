@@ -136,6 +136,89 @@ export type Database = {
           },
         ]
       }
+      additional_client_data: {
+      Row: {
+        id: string
+        created_at?: string
+        call_id?: string
+        client_id: string
+        nombre?: string
+        segundo_nombre?: string
+        telefono?: string
+        numero_afiliado?: string
+        motivo_consulta?: string
+        tipo_tramite?: string
+        localidad?: string
+        fecha?: string
+        especialidad?: string
+        nombre_prestador?: string
+        estado_tramite?: string
+        horario_actual?: string
+        canal_contacto?: string
+        detalle_reclamo?: string
+        custom_fields?: Json | null
+        data_source?: string
+        is_visible?: boolean
+        call_id_retell?: string
+      }
+      Insert: {
+        id?: string
+        created_at?: string
+        call_id?: string
+        client_id: string
+        nombre?: string
+        segundo_nombre?: string
+        telefono?: string
+        numero_afiliado?: string
+        motivo_consulta?: string
+        tipo_tramite?: string
+        localidad?: string
+        fecha?: string
+        especialidad?: string
+        nombre_prestador?: string
+        estado_tramite?: string
+        horario_actual?: string
+        canal_contacto?: string
+        detalle_reclamo?: string
+        custom_fields?: Json | null
+        data_source?: string
+        is_visible?: boolean
+        call_id_retell?: string
+      }
+      Update: {
+        id?: string
+        created_at?: string
+        call_id?: string
+        client_id?: string
+        nombre?: string
+        segundo_nombre?: string
+        telefono?: string
+        numero_afiliado?: string
+        motivo_consulta?: string
+        tipo_tramite?: string
+        localidad?: string
+        fecha?: string
+        especialidad?: string
+        nombre_prestador?: string
+        estado_tramite?: string
+        horario_actual?: string
+        canal_contacto?: string
+        detalle_reclamo?: string
+        custom_fields?: Json | null
+        data_source?: string
+        is_visible?: boolean
+        call_id_retell?: string
+      }
+      Relationships: [
+        {
+          foreignKeyName: "additional_client_data_call_id_fkey1"
+          columns: ["call_id"]
+          isOneToOne: false
+          referencedRelation: "calls"
+          referencedColumns: ["id"]
+        }
+      ]
+    }
     }
     Views: {
       [_ in never]: never

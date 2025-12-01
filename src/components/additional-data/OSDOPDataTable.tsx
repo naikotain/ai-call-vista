@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { OSDOPClientData } from '../../types/additional-data';
+import { OSDOPClientData } from '../../types/normalized';
 import { OSDOPDataService } from '../../services/osdop-data-service';
 import { CLIENT_CONFIGS, DEFAULT_CLIENT } from '../../config/clients';
 
@@ -166,33 +166,54 @@ export const OSDOPDataTable: React.FC = () => {
   };
 
   // ✅ NUEVO: Estadísticas de relación
-  const renderRelationshipStats = () => {
-    if (!relationshipStats) return null;
+const renderRelationshipStats = () => {
+  if (!relationshipStats) return null;
 
-    return (
-      <div className="mb-4 p-3 bg-blue-50 rounded-lg border">
-        <h4 className="font-semibold text-sm mb-2">📊 Estadísticas de Relación</h4>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-          <div>
-            <div className="font-medium">Total Llamadas</div>
-            <div>{relationshipStats.totalCalls}</div>
+  return (
+    <div className="mb-4 p-4 bg-card border border-border rounded-lg text-foreground">
+      <h4 className="font-semibold text-lg mb-3">📊 Estadísticas de Relación</h4>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* Total Llamadas */}
+        <div className="bg-success/10 border border-success/20 rounded-lg p-3 text-center">
+          <div className="text-2xl font-bold text-success">{relationshipStats.totalCalls}</div>
+          <div className="text-sm text-muted-foreground mt-1">Total Llamadas</div>
+        </div>
+        
+        {/* Total Datos */}
+        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 text-center">
+          <div className="text-2xl font-bold text-blue-500">{relationshipStats.totalAdditional}</div>
+          <div className="text-sm text-muted-foreground mt-1">Total Datos</div>
+        </div>
+        
+        {/* Relaciones */}
+        <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3 text-center">
+          <div className="text-2xl font-bold text-purple-500">{relationshipStats.matchedRelations}</div>
+          <div className="text-sm text-muted-foreground mt-1">Relaciones</div>
+        </div>
+        
+        {/* Tasa de Match */}
+        <div className={`rounded-lg p-3 text-center ${
+          relationshipStats.matchRate >= 90 
+            ? 'bg-green-500/10 border border-green-500/20' 
+            : relationshipStats.matchRate >= 70
+            ? 'bg-yellow-500/10 border border-yellow-500/20'
+            : 'bg-red-500/10 border border-red-500/20'
+        }`}>
+          <div className={`text-2xl font-bold ${
+            relationshipStats.matchRate >= 90 
+              ? 'text-green-500' 
+              : relationshipStats.matchRate >= 70
+              ? 'text-yellow-500'
+              : 'text-red-500'
+          }`}>
+            {relationshipStats.matchRate?.toFixed(1)}%
           </div>
-          <div>
-            <div className="font-medium">Total Datos</div>
-            <div>{relationshipStats.totalAdditional}</div>
-          </div>
-          <div>
-            <div className="font-medium">Relaciones</div>
-            <div>{relationshipStats.matchedRelations}</div>
-          </div>
-          <div>
-            <div className="font-medium">Tasa de Match</div>
-            <div>{relationshipStats.matchRate?.toFixed(1)}%</div>
-          </div>
+          <div className="text-sm text-muted-foreground mt-1">Tasa de Match</div>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
   const isLoading = loading || (viewMode === 'related' && dashboardLoading);
 

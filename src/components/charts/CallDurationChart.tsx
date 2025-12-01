@@ -1,5 +1,5 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { log } from '@/utils/simple-logger';
+import { log } from '@/lib/simple-logger';
 
 interface CallDurationChartProps {
   data: Array<{ name: string; duration: number }>;
