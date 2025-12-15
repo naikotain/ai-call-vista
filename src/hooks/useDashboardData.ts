@@ -24,6 +24,7 @@ import { getFieldMapping } from '@/config/field-mappings';
 // Logger centralizado
 import { log } from '@/lib/simple-logger';
 import { categorizeDisconnectReason } from '@/config/disconnect-categories';
+import { getCurrentClientId } from '@/lib/supabase-client';
 
 // Usar el tipo normalizado
 type Call = NormalizedCall;
@@ -203,16 +204,7 @@ export const formatDuration = (minutes: number): string => {
   return `${mins} min ${segs} seg`;
 };
 
-// Función para obtener el cliente actual de la URL
-function getCurrentClient(): string {
-  if (typeof window === 'undefined') return DEFAULT_CLIENT;
-  
-  const urlParams = new URLSearchParams(window.location.search);
-  const client = urlParams.get('client');
-  
-  const validClients = Object.keys(CLIENT_CONFIGS); // ['cliente1', 'cliente2', 'cliente3']
-  return validClients.includes(client || '') ? client! : DEFAULT_CLIENT;
-}
+
 
 // Función para calcular éxito por hora
 const calculateSuccessByHour = (calls: Call[]): Array<{
@@ -689,7 +681,7 @@ const getInboundOutboundByDayOfMonth = (calls: Call[]) => {
 
 // Función para calcular costos con sistema por país
 const calcularCostosConSistemaPais = (calls: Call[]) => {
-  const clientId = getCurrentClient();
+  const clientId = getCurrentClientId();
 
  console.log('🔍 DEBUG CLIENTE REAL:', {
     clientId,
@@ -944,7 +936,7 @@ async function fetchDataFromSupabase(
     }
 
     // Normalizar datos
-    const clientId = getCurrentClient();
+    const clientId = getCurrentClientId();
     const normalizedCalls = DataNormalizer.normalizeCallsData(rawCalls || [], clientId);
 
     let filteredCalls = normalizedCalls;
@@ -1349,7 +1341,7 @@ export const useDashboardData = () => {
 
   // Función para obtener datos relacionados
   const fetchCallsWithAdditionalData = useCallback(async () => {
-    const clientId = getCurrentClient();
+    const clientId = getCurrentClientId();
     if (!clientId) return;
     
     try {
@@ -1371,7 +1363,7 @@ export const useDashboardData = () => {
 
   // Función para la pestaña de datos adicionales
   const fetchAdditionalDataWithCalls = useCallback(async () => {
-    const clientId = getCurrentClient();
+    const clientId = getCurrentClientId();
     if (!clientId) return;
     
     try {
@@ -1390,7 +1382,7 @@ export const useDashboardData = () => {
 
   // Función para obtener estadísticas de relación
   const fetchRelationshipStats = useCallback(async () => {
-    const clientId = getCurrentClient();
+    const clientId = getCurrentClientId();
     if (!clientId) return;
     
     try {

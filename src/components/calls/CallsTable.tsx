@@ -26,7 +26,8 @@ import {
 } from '@/components/ui/select';
 
 // ✅ IMPORTAR funciones del sistema de costos multi-tenant
-import { calculateCallCost, getCurrentClientId } from '@/config/countryCosts';
+import { calculateCallCost } from '@/config/countryCosts';
+import { getCurrentClientId } from '@/lib/supabase-client';
 
 type Call = Database['public']['Tables']['calls']['Row'] & {
   agents?: { name: string } | null;

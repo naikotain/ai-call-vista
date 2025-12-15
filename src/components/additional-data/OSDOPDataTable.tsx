@@ -1,43 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { OSDOPClientData } from '../../types/normalized';
 import { OSDOPDataService } from '../../services/osdop-data-service';
-import { CLIENT_CONFIGS, DEFAULT_CLIENT } from '../../config/clients';
-
-// ✅ NUEVO IMPORT: Configuración dinámica
+import { CLIENT_CONFIGS } from '../../config/clients';
+import { getCurrentClientId } from '@/lib/supabase-client';
 import { getAdditionalDataConfig } from '../../config/additional-data-config';
-
-// ✅ NUEVO IMPORT: Hook de dashboard para datos relacionados
 import { useDashboardData } from '../../hooks/useDashboardData';
 
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
+import { Input } from '../ui/input';
+import { RefreshCw, ChevronRight, ChevronLeft, Search, X, Eye, EyeOff, Phone } from 'lucide-react';
 
-// Hook para obtener el clientId
-const useClientId = (): string => {
-  const urlParams = new URLSearchParams(window.location.search);
-  const clientFromUrl = urlParams.get('client');
-  return clientFromUrl || DEFAULT_CLIENT;
-};
-
-// ✅ NUEVA FUNCIÓN: Obtener valor de campo (soporta custom_fields)
+// ✅ FUNCIONES AUXILIARES
 const getFieldValue = (item: any, key: string) => {
-  // Soporte mejorado para campos anidados en custom_fields
   if (key.startsWith('custom_fields.')) {
     const fieldPath = key.replace('custom_fields.', '');
-    // Soporte para campos anidados como custom_fields.precio_interesa
     const value = fieldPath.split('.').reduce((obj, prop) => obj?.[prop], item.custom_fields);
     return value || '-';
   }
   return item[key] || '-';
 };
 
-// ✅ NUEVA FUNCIÓN: Formatear valor según configuración
 const formatFieldValue = (value: any, clientConfig: any, fieldKey: string) => {
   const fieldConfig = clientConfig.fieldConfig?.[fieldKey];
   
-  // Formato de moneda para precios
   if (fieldConfig?.type === 'currency') {
     const numericValue = parseFloat(value?.toString().replace(/[^\d.,]/g, '')?.replace(',', '.') || '0');
     return new Intl.NumberFormat('es-ES', {
@@ -48,18 +35,11 @@ const formatFieldValue = (value: any, clientConfig: any, fieldKey: string) => {
     }).format(numericValue);
   }
   
-  // Formato de número
-  if (fieldConfig?.type === 'number') {
-    return value?.toString() || '0';
-  }
-  
-  // Badges para SI/NO
   if (fieldConfig?.type === 'badge') {
     const variant = fieldConfig.variants?.[value] || 'default';
     return <Badge variant={variant as any}>{value}</Badge>;
   }
   
-  // Fecha
   if (fieldConfig?.type === 'date' && value) {
     try {
       return new Date(value).toLocaleDateString('es-ES');
@@ -71,17 +51,67 @@ const formatFieldValue = (value: any, clientConfig: any, fieldKey: string) => {
   return value;
 };
 
-export const OSDOPDataTable: React.FC = () => {
-  const clientId = useClientId();
+// ✅ FUNCIÓN DE BÚSQUEDA UNIFICADA
+const searchInData = (data: any[], searchTerm: string, clientConfig: any): any[] => {
+  if (!searchTerm.trim()) return data;
   
+  const lowerSearchTerm = searchTerm.toLowerCase();
+  
+  return data.filter(item => {
+    // Buscar en todos los campos visibles de la tabla
+    return clientConfig.columns.some((column: any) => {
+      const value = getFieldValue(item, column.key);
+      const stringValue = typeof value === 'object' && value !== null 
+        ? JSON.stringify(value) 
+        : String(value || '');
+      
+      return stringValue.toLowerCase().includes(lowerSearchTerm);
+    }) || 
+    // También buscar en campos de llamada si existen
+    (item.call_data && Object.values(item.call_data).some((callValue: any) => {
+      if (typeof callValue === 'string') {
+        return callValue.toLowerCase().includes(lowerSearchTerm);
+      }
+      if (typeof callValue === 'number' || typeof callValue === 'boolean') {
+        return callValue.toString().toLowerCase().includes(lowerSearchTerm);
+      }
+      return false;
+    }));
+  });
+};
+
+// ✅ FUNCIÓN PARA DETERMINAR CAMPOS IMPORTANTES POR CLIENTE
+const getImportantColumns = (allColumns: any[], clientId: string) => {
+  if (clientId === 'cliente3') {
+    // Para inmobiliaria: campos críticos
+    const importantKeys = [
+      'nombre', 'telefono', 'email', 'calle_interesa', 
+      'precio_interesa', 'comentarios', 'fecha_contacto',
+      'compra_alquiler', 'tipo_propiedad', 'precio_maximo'
+    ];
+    
+    return allColumns.filter(col => 
+      importantKeys.some(key => 
+        col.key.toLowerCase().includes(key.toLowerCase())
+      )
+    ).slice(0, 8); // Máximo 8 campos importantes
+  }
+  
+  // Para otros clientes: primeros 6 campos
+  return allColumns.slice(0, 6);
+};
+
+// ✅ COMPONENTE PRINCIPAL UNIFICADO
+export const OSDOPDataTable: React.FC = () => {
+  const clientId = getCurrentClientId();
   const [data, setData] = useState<OSDOPClientData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'classic' | 'related'>('classic');
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showAllColumns, setShowAllColumns] = useState(false);
 
-  // ✅ NUEVO: Obtener configuración del cliente
   const clientConfig = getAdditionalDataConfig(clientId);
-  
-  // ✅ NUEVO: Usar hook de dashboard para datos relacionados
   const { 
     additionalDataWithCalls, 
     fetchAdditionalDataWithCalls,
@@ -89,21 +119,14 @@ export const OSDOPDataTable: React.FC = () => {
     loading: dashboardLoading 
   } = useDashboardData();
 
+  // ✅ CARGAR DATOS CON LLAMADAS INTEGRADAS
   useEffect(() => {
-    console.log('🔗 Cargando datos para cliente:', clientId);
     if (clientId && CLIENT_CONFIGS[clientId]) {
       loadData();
-    }
-  }, [clientId]);
-
-  // ✅ NUEVO: Cargar datos relacionados cuando cambie el modo
-  useEffect(() => {
-    console.log('🔄 OSDOPDataTable - Cambio de viewMode:', viewMode);
-    if (viewMode === 'related') {
-      console.log('📞 Ejecutando fetchAdditionalDataWithCalls...');
+      // También cargar datos con llamadas para tenerlos listos
       fetchAdditionalDataWithCalls();
     }
-  }, [viewMode, fetchAdditionalDataWithCalls]);
+  }, [clientId]);
 
   const loadData = async () => {
     if (!clientId) return;
@@ -111,7 +134,6 @@ export const OSDOPDataTable: React.FC = () => {
     setLoading(true);
     try {
       const result = await OSDOPDataService.getOSDOPData(clientId, {});
-      console.log('✅ Datos cargados:', result);
       setData(result);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -120,290 +142,562 @@ export const OSDOPDataTable: React.FC = () => {
     }
   };
 
-  // ✅ NUEVA FUNCIÓN: Obtener variante de badge para estado de llamada
-  const getCallStatusBadgeVariant = (status: string = '') => {
-    if (status === 'successful') return 'default';
-    if (status === 'failed') return 'destructive';
-    if (status === 'voicemail') return 'secondary';
-    if (status === 'transferred') return 'outline';
-    if (status === 'ongoing') return 'default';
-    return 'secondary';
-  };
-
-  // ✅ NUEVA FUNCIÓN: Formatear duración de llamada
-  const formatCallDuration = (seconds: number): string => {
-    if (!seconds || isNaN(seconds)) return '0:00';
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-  };
-
-  // ✅ NUEVA FUNCIÓN: Renderizar información de llamada relacionada
-  const renderCallInfo = (callData: any) => {
-    if (!callData) {
-      return (
-        <div className="text-xs text-muted-foreground">
-          ❌ Sin llamada relacionada
-        </div>
-      );
+  // ✅ Funciones para scroll
+  const scrollLeft = () => {
+    if (tableContainerRef.current) {
+      tableContainerRef.current.scrollBy({ left: -300, behavior: 'smooth' });
     }
-
-    return (
-      <div className="text-xs space-y-1">
-        <div className="flex items-center gap-1">
-          <Badge variant={getCallStatusBadgeVariant(callData.status)} className="text-xs">
-            {callData.status || 'N/A'}
-          </Badge>
-        </div>
-        <div>📅 {new Date(callData.started_at).toLocaleDateString('es-ES')}</div>
-        <div>⏱️ {formatCallDuration(callData.duration)}</div>
-        <div>📞 {callData.customer_phone || 'N/A'}</div>
-        {callData.sentiment && (
-          <div>🎯 {callData.sentiment}</div>
-        )}
-      </div>
-    );
   };
 
-  // ✅ NUEVO: Estadísticas de relación
-const renderRelationshipStats = () => {
-  if (!relationshipStats) return null;
+  const scrollRight = () => {
+    if (tableContainerRef.current) {
+      tableContainerRef.current.scrollBy({ left: 300, behavior: 'smooth' });
+    }
+  };
 
-  return (
-    <div className="mb-4 p-4 bg-card border border-border rounded-lg text-foreground">
-      <h4 className="font-semibold text-lg mb-3">📊 Estadísticas de Relación</h4>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {/* Total Llamadas */}
-        <div className="bg-success/10 border border-success/20 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-success">{relationshipStats.totalCalls}</div>
-          <div className="text-sm text-muted-foreground mt-1">Total Llamadas</div>
-        </div>
-        
-        {/* Total Datos */}
-        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-blue-500">{relationshipStats.totalAdditional}</div>
-          <div className="text-sm text-muted-foreground mt-1">Total Datos</div>
-        </div>
-        
-        {/* Relaciones */}
-        <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-purple-500">{relationshipStats.matchedRelations}</div>
-          <div className="text-sm text-muted-foreground mt-1">Relaciones</div>
-        </div>
-        
-        {/* Tasa de Match */}
-        <div className={`rounded-lg p-3 text-center ${
-          relationshipStats.matchRate >= 90 
-            ? 'bg-green-500/10 border border-green-500/20' 
-            : relationshipStats.matchRate >= 70
-            ? 'bg-yellow-500/10 border border-yellow-500/20'
-            : 'bg-red-500/10 border border-red-500/20'
-        }`}>
-          <div className={`text-2xl font-bold ${
-            relationshipStats.matchRate >= 90 
-              ? 'text-green-500' 
-              : relationshipStats.matchRate >= 70
-              ? 'text-yellow-500'
-              : 'text-red-500'
-          }`}>
-            {relationshipStats.matchRate?.toFixed(1)}%
-          </div>
-          <div className="text-sm text-muted-foreground mt-1">Tasa de Match</div>
-        </div>
-      </div>
-    </div>
+  const scrollToStart = () => {
+    if (tableContainerRef.current) {
+      tableContainerRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+    }
+  };
+
+  // ✅ COMBINAR DATOS CON INFORMACIÓN DE LLAMADAS
+  const dataWithCalls = useMemo(() => {
+    // Crear un mapa de call_id_retell a datos de llamada para búsqueda rápida
+    const callsMap = new Map();
+    additionalDataWithCalls.forEach(item => {
+      if (item.call_id_retell && item.call_data) {
+        callsMap.set(item.call_id_retell, item.call_data);
+      }
+    });
+    
+    // Combinar datos con información de llamadas
+    return data.map(item => {
+      const callData = callsMap.get(item.call_id_retell) || null;
+      return {
+        ...item,
+        call_data: callData,
+        // Agregar indicador visual si tiene llamada
+        has_call: !!callData
+      };
+    });
+  }, [data, additionalDataWithCalls]);
+
+  // ✅ FILTRAR DATOS CON BÚSQUEDA
+  const filteredData = useMemo(() => {
+    return searchInData(dataWithCalls, searchTerm, clientConfig);
+  }, [dataWithCalls, searchTerm, clientConfig]);
+
+  // ✅ DETERMINAR QUÉ COLUMNAS MOSTRAR
+  const allColumns = clientConfig.columns;
+  const importantColumns = useMemo(() => 
+    getImportantColumns(allColumns, clientId), 
+    [allColumns, clientId]
   );
-};
+  
+  const secondaryColumns = useMemo(() => 
+    allColumns.filter(col => 
+      !importantColumns.some(imp => imp.key === col.key)
+    ), 
+    [allColumns, importantColumns]
+  );
 
-  const isLoading = loading || (viewMode === 'related' && dashboardLoading);
+  const displayColumns = showAllColumns 
+    ? [...importantColumns, ...secondaryColumns]
+    : importantColumns;
+
+  // ✅ DETECTAR SI HAY MÁS COLUMNAS QUE ANCHO DISPONIBLE
+  const [needsHorizontalScroll, setNeedsHorizontalScroll] = useState(false);
+  
+  useEffect(() => {
+    const checkScrollNeeded = () => {
+      if (tableContainerRef.current) {
+        const containerWidth = tableContainerRef.current.clientWidth;
+        const tableWidth = tableContainerRef.current.scrollWidth;
+        setNeedsHorizontalScroll(tableWidth > containerWidth);
+      }
+    };
+
+    checkScrollNeeded();
+    window.addEventListener('resize', checkScrollNeeded);
+    
+    const timer = setTimeout(checkScrollNeeded, 100);
+    
+    return () => {
+      window.removeEventListener('resize', checkScrollNeeded);
+      clearTimeout(timer);
+    };
+  }, [filteredData, displayColumns]);
+
+  const isLoading = loading || dashboardLoading;
+  const displayData = filteredData;
+  const totalRecords = data.length;
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        {/* ✅ CAMBIADO: Título dinámico por cliente */}
-        <CardTitle>{clientConfig.tableTitle}</CardTitle>
-        <CardDescription>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div>
-              {viewMode === 'classic' 
-                ? `Catálogo de propiedades - ${data.length} registros`
-                : `Propiedades con llamadas relacionadas - ${additionalDataWithCalls.length} registros`
-              }
-              <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                Cliente: {clientId}
-              </span>
+    <Card className="w-full overflow-hidden">
+      <CardHeader className="pb-3 bg-card border-b">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <CardTitle className="text-xl flex items-center gap-2">
+              {clientConfig.tableTitle}
+              {showAllColumns && (
+                <Badge variant="outline" className="text-xs">
+                  Vista completa
+                </Badge>
+              )}
+            </CardTitle>
+            <CardDescription className="mt-1">
+              {displayData.length}{searchTerm ? ` de ${totalRecords}` : ''} registros • 
+              Cliente: <span className="font-medium">{clientId}</span>
+              {displayData.some(item => item.has_call) && (
+                <span className="ml-2">
+                  • <span className="text-green-500">{displayData.filter(item => item.has_call).length}</span> con llamadas
+                </span>
+              )}
+            </CardDescription>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            {/* ✅ BÚSQUEDA MEJORADA */}
+            <div className="flex items-center gap-2">
+              {showSearch ? (
+                <div className="relative">
+                  <Input
+                    type="text"
+                    placeholder="Buscar en todos los campos..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-3 pr-10 h-9 w-48 sm:w-56"
+                    autoFocus
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
+                    onClick={() => {
+                      setShowSearch(false);
+                      setSearchTerm('');
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowSearch(true)}
+                  className="h-9"
+                >
+                  <Search className="h-4 w-4 mr-2" />
+                  Buscar
+                </Button>
+              )}
+              
+              {searchTerm && !showSearch && (
+                <div className="flex items-center gap-1">
+                  <span className="text-sm text-muted-foreground truncate max-w-[100px] sm:max-w-[150px]">
+                    "{searchTerm}"
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    onClick={() => setSearchTerm('')}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
             </div>
             
-            {/* ✅ Selector de modo de vista */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Vista:</span>
-              <select 
-                value={viewMode}
-                onChange={(e) => setViewMode(e.target.value as 'classic' | 'related')}
-                className="text-sm border rounded px-2 py-1"
-              >
-                <option value="classic">Catálogo</option>
-                <option value="related">Con Llamadas</option>
-              </select>
-            </div>
-          </div>
-        </CardDescription>
-        
-        <div className="flex space-x-2">
-          <Button 
-            onClick={viewMode === 'classic' ? loadData : fetchAdditionalDataWithCalls} 
-            variant="outline" 
-            disabled={isLoading}
-          >
-            {isLoading ? 'Cargando...' : 'Actualizar Datos'}
-          </Button>
-          
-          {/* ✅ Botón para ver estadísticas de relación */}
-          {viewMode === 'related' && relationshipStats && (
-            <Button 
-              onClick={fetchAdditionalDataWithCalls}
-              variant="ghost" 
+            {/* ✅ TOGGLE DE VISTA COMPLETA */}
+            <Button
+              variant="outline"
               size="sm"
-              className="text-xs"
+              onClick={() => setShowAllColumns(!showAllColumns)}
+              className="h-9"
             >
-              🔄 Actualizar Relación
+              {showAllColumns ? (
+                <>
+                  <EyeOff className="h-4 w-4 mr-2" />
+                  Menos campos
+                </>
+              ) : (
+                <>
+                  <Eye className="h-4 w-4 mr-2" />
+                  Todos los campos
+                </>
+              )}
             </Button>
+            
+            <Button
+              onClick={loadData}
+              variant="outline"
+              size="sm"
+              disabled={isLoading}
+              className="h-9"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+        </div>
+        
+        {/* ✅ INDICADOR DE BÚSQUEDA ACTIVA */}
+        {searchTerm && (
+          <div className="mt-2 text-sm flex items-center justify-between">
+            <div className="text-muted-foreground">
+              🔍 Búsqueda activa
+              {displayData.length === 0 && (
+                <span className="ml-2 text-amber-500">
+                  • No se encontraron resultados
+                </span>
+              )}
+            </div>
+            {displayData.length > 0 && (
+              <div className="text-sm font-medium">
+                {displayData.length} resultado{displayData.length !== 1 ? 's' : ''}
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* ✅ INFO DE COLUMNAS VISIBLES */}
+        <div className="mt-2 text-xs text-muted-foreground">
+          Mostrando {displayColumns.length} de {allColumns.length} campos
+          {secondaryColumns.length > 0 && !showAllColumns && (
+            <span className="ml-2">
+              • <button 
+                className="text-blue-400 hover:text-blue-300 underline"
+                onClick={() => setShowAllColumns(true)}
+              >
+                Ver {secondaryColumns.length} más
+              </button>
+            </span>
           )}
         </div>
       </CardHeader>
       
-      <CardContent>
-        {/* ✅ Mostrar estadísticas de relación en modo relacionado */}
-        {viewMode === 'related' && renderRelationshipStats()}
-
-        {isLoading ? (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-2 text-muted-foreground">
-              {viewMode === 'related' ? 'Cargando datos relacionados...' : 'Cargando catálogo...'}
-            </p>
-          </div>
-        ) : viewMode === 'classic' ? (
-          // ✅ VISTA CLÁSICA CON COLUMNAS DINÁMICAS
-          data.length > 0 ? (
-            <div className="rounded-md border">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      {/* ✅ COLUMNAS DINÁMICAS POR CLIENTE */}
-                      {clientConfig.columns.map(column => (
-                        <TableHead key={column.key} className="whitespace-nowrap">
-                          {column.displayName}
-                        </TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.map((item) => (
-                      <TableRow key={item.id} className="hover:bg-muted/50">
-                        {clientConfig.columns.map(column => (
-                          <TableCell key={column.key} className="whitespace-nowrap">
-                            {/* ✅ RENDERIZADO DINÁMICO CON FORMATO ESPECÍFICO */}
-                            {formatFieldValue(
-                              getFieldValue(item, column.key), 
-                              clientConfig, 
-                              column.key
-                            )}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+      <CardContent className="p-0 relative">
+        {/* ✅ CONTENEDOR DE TABLA */}
+        <div className="relative">
+          {/* ✅ CONTROLES DE SCROLL */}
+          {needsHorizontalScroll && displayData.length > 0 && (
+            <>
+              <div className="absolute left-0 top-1/2 transform -translate-y-1/2 z-30 ml-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0 bg-background/90 backdrop-blur-sm border-border shadow-lg"
+                  onClick={scrollLeft}
+                  title="Desplazar izquierda"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
               </div>
-              <div className="p-4 border-t bg-muted/20">
-                <p className="text-sm text-muted-foreground text-center">
-                  Mostrando {data.length} en el catálogo
-                </p>
+              
+              <div className="absolute right-0 top-1/2 transform -translate-y-1/2 z-30 mr-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0 bg-background/90 backdrop-blur-sm border-border shadow-lg"
+                  onClick={scrollRight}
+                  title="Desplazar derecha"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
-            </div>
-          ) : (
-            <div className="text-center py-12 border-2 border-dashed rounded-lg">
-              <div className="text-lg font-medium text-muted-foreground mb-2">
-                No hay nada en el catálogo
-              </div>
-              <div className="text-sm text-muted-foreground mb-4">
-                La tabla 'additional_client_data' está vacía para el cliente {clientId}
-              </div>
-              <Button onClick={loadData} variant="outline">
-                Reintentar
-              </Button>
-            </div>
-          )
-        ) : (
-          // ✅ VISTA RELACIONADA CON LLAMADAS (también con columnas dinámicas)
-          additionalDataWithCalls.length > 0 ? (
-            <div className="rounded-md border">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      {/* ✅ COLUMNAS DINÁMICAS + LLAMADA RELACIONADA */}
-                      {clientConfig.columns.slice(0, 6).map(column => (
-                        <TableHead key={column.key} className="whitespace-nowrap">
-                          {column.displayName}
-                        </TableHead>
-                      ))}
-                      <TableHead>Llamada Relacionada</TableHead>
-                      <TableHead>Estado Llamada</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {additionalDataWithCalls.map((item) => (
-                      <TableRow key={item.id} className="hover:bg-muted/50">
-                        {clientConfig.columns.slice(0, 6).map(column => (
-                          <TableCell key={column.key} className="whitespace-nowrap">
-                            {formatFieldValue(
-                              getFieldValue(item, column.key), 
-                              clientConfig, 
-                              column.key
-                            )}
-                          </TableCell>
-                        ))}
-                        <TableCell className="whitespace-nowrap">
-                          {renderCallInfo(item.call_data)}
-                        </TableCell>
-                        <TableCell>
-                          {item.call_data ? (
-                            <Badge variant={getCallStatusBadgeVariant(item.call_data.status)}>
-                              {item.call_data.status || 'N/A'}
-                            </Badge>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">❌ Sin relación</span>
+            </>
+          )}
+          
+          {/* ✅ TABLA UNIFICADA CON TODO INTEGRADO */}
+          <div 
+            ref={tableContainerRef}
+            className="overflow-x-auto overflow-y-auto max-h-[500px] scroll-smooth relative"
+          >
+            <div className="min-w-full inline-block">
+              <table className="min-w-full divide-y divide-gray-700">
+                <thead className="sticky top-0 z-20">
+                  <tr>
+                    {displayColumns.map((column: any) => (
+                      <th
+                        key={column.key}
+                        className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap bg-gray-900 border-b border-gray-700"
+                        style={{ 
+                          position: 'sticky',
+                          top: 0,
+                          zIndex: 20
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span>{column.displayName}</span>
+                          {importantColumns.some(c => c.key === column.key) && !showAllColumns && (
+                            <span className="text-[10px] text-blue-400 ml-1">★</span>
                           )}
-                        </TableCell>
-                      </TableRow>
+                        </div>
+                      </th>
                     ))}
-                  </TableBody>
-                </Table>
-              </div>
-              <div className="p-4 border-t bg-muted/20">
-                <p className="text-sm text-muted-foreground text-center">
-                  {additionalDataWithCalls.filter(item => item.call_data).length} / {additionalDataWithCalls.length} tienen llamada relacionada
-                </p>
+                    
+                    {/* ✅ COLUMNA DE LLAMADAS INTEGRADA (siempre visible) */}
+                    <th 
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap bg-gray-900 border-b border-gray-700"
+                      style={{ 
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 20
+                      }}
+                    >
+                      <div className="flex items-center gap-1">
+                        <Phone className="h-3 w-3" />
+                        <span>Contacto</span>
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                
+                <tbody className="divide-y divide-gray-800 bg-gray-950">
+                  {displayData.length > 0 ? (
+                    displayData.map((item: any, index: number) => (
+                      <tr 
+                        key={item.id} 
+                        className={`hover:bg-gray-800/30 ${index % 2 === 0 ? 'bg-gray-900/20' : 'bg-gray-900/10'}`}
+                      >
+                        {displayColumns.map((column: any) => (
+                          <td
+                            key={`${item.id}-${column.key}`}
+                            className="px-4 py-3 text-sm whitespace-nowrap"
+                          >
+                            <div 
+                              className="max-w-[200px] truncate hover:whitespace-normal hover:max-w-none transition-all duration-200 cursor-help" 
+                              title={String(getFieldValue(item, column.key))}
+                            >
+                              {formatFieldValue(getFieldValue(item, column.key), clientConfig, column.key)}
+                            </div>
+                          </td>
+                        ))}
+                        
+                        {/* ✅ CELDA DE LLAMADA INTEGRADA */}
+                        <td className="px-4 py-3">
+                          {item.call_data ? (
+                            <div className="space-y-1 min-w-[100px]">
+                              <div className="flex items-center gap-1">
+                                <Badge variant={
+                                  item.call_data.status === 'successful' ? 'default' :
+                                  item.call_data.status === 'failed' ? 'destructive' : 'secondary'
+                                } className="text-xs">
+                                  {item.call_data.status || 'N/A'}
+                                </Badge>
+                                <span className="text-[10px] text-muted-foreground">
+                                  {new Date(item.call_data.started_at).toLocaleDateString('es-ES')}
+                                </span>
+                              </div>
+                              {item.call_data.customer_phone && (
+                                <div className="text-xs text-muted-foreground truncate max-w-[120px]">
+                                  📞 {item.call_data.customer_phone}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center text-center">
+                              <span className="text-xs text-muted-foreground">—</span>
+                              <span className="text-[10px] text-muted-foreground mt-1">
+                                Sin llamada
+                              </span>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td 
+                        colSpan={displayColumns.length + 1} 
+                        className="px-4 py-12 text-center"
+                      >
+                        <div className="text-center space-y-3">
+                          <div className="text-muted-foreground text-lg">
+                            {isLoading 
+                              ? 'Cargando datos...'
+                              : searchTerm 
+                                ? `No se encontraron resultados para "${searchTerm}"`
+                                : 'No hay datos para mostrar'
+                            }
+                          </div>
+                          {searchTerm && (
+                            <div className="text-sm text-muted-foreground">
+                              Intenta con términos diferentes o{' '}
+                              <Button
+                                variant="link"
+                                className="p-0 h-auto"
+                                onClick={() => setSearchTerm('')}
+                              >
+                                limpiar la búsqueda
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          {/* ✅ INDICADOR DE SCROLL */}
+          {needsHorizontalScroll && displayData.length > 0 && (
+            <div className="border-t border-gray-700 bg-gray-900/50 px-4 py-2 mt-2">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <ChevronLeft className="h-3 w-3" />
+                  <span>Desplázate horizontalmente para ver más columnas</span>
+                  <ChevronRight className="h-3 w-3" />
+                </div>
+                
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={scrollToStart}
+                  className="h-7 text-xs"
+                >
+                  ↶ Volver al inicio
+                </Button>
               </div>
             </div>
-          ) : (
-            <div className="text-center py-12 border-2 border-dashed rounded-lg">
-              <div className="text-lg font-medium text-muted-foreground mb-2">
-                No hay relacionadas
-              </div>
-              <div className="text-sm text-muted-foreground mb-4">
-                No se encontraron datos en additional_client_data para el cliente {clientId}
-              </div>
-              <Button onClick={fetchAdditionalDataWithCalls} variant="outline">
-                Reintentar
-              </Button>
+          )}
+        </div>
+        
+        {/* ✅ PIE DE PÁGINA CON INFORMACIÓN MEJORADA */}
+        <div className="px-4 py-3 border-t bg-gray-900/30">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-sm">
+            <div className="text-muted-foreground">
+              <span className="font-semibold text-foreground">{displayData.length}</span> registro{displayData.length !== 1 ? 's' : ''} 
+              {searchTerm ? ' encontrados' : ' mostrados'}
+              {searchTerm && (
+                <span className="ml-2">
+                  • Filtrado por: <span className="font-medium text-blue-400">"{searchTerm}"</span>
+                </span>
+              )}
+              {searchTerm && displayData.length < totalRecords && (
+                <span className="ml-2 text-amber-500">
+                  (de {totalRecords} total)
+                </span>
+              )}
+              {displayData.some(item => item.has_call) && (
+                <span className="ml-2 text-green-500">
+                  • {displayData.filter(item => item.has_call).length} con llamadas
+                </span>
+              )}
             </div>
-          )
-        )}
+            
+            <div className="flex items-center gap-4">
+              <div className="text-xs text-muted-foreground">
+                {displayColumns.length}/{allColumns.length} campos
+                {showAllColumns ? ' (completos)' : ' (principales)'}
+              </div>
+              
+              {needsHorizontalScroll && displayData.length > 0 && (
+                <div className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground">
+                  <span>Usa</span>
+                  <kbd className="px-2 py-1 bg-gray-800 rounded border border-gray-700">←</kbd>
+                  <kbd className="px-2 py-1 bg-gray-800 rounded border border-gray-700">→</kbd>
+                  <span>para navegar</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
 };
+
+// ✅ ESTILOS MEJORADOS
+const unifiedStyles = `
+  .scroll-smooth {
+    scroll-behavior: smooth;
+  }
+  
+  .scroll-smooth::-webkit-scrollbar {
+    height: 10px;
+    width: 10px;
+  }
+  
+  .scroll-smooth::-webkit-scrollbar-track {
+    background: #111827;
+    border-radius: 4px;
+  }
+  
+  .scroll-smooth::-webkit-scrollbar-thumb {
+    background: #374151;
+    border-radius: 4px;
+    border: 2px solid #111827;
+  }
+  
+  .scroll-smooth::-webkit-scrollbar-thumb:hover {
+    background: #4b5563;
+  }
+  
+  thead th {
+    position: sticky;
+    top: 0;
+    background: #111827 !important;
+    z-index: 20;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  }
+  
+  [title] {
+    position: relative;
+  }
+  
+  [title]:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    transform: translateX(0);
+    background: #111827;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    z-index: 1000;
+    max-width: 400px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    border: 1px solid #374151;
+    pointer-events: none;
+  }
+  
+  tr:hover {
+    background-color: rgba(59, 130, 246, 0.05) !important;
+  }
+  
+  .truncate {
+    transition: all 0.2s ease;
+  }
+  
+  .truncate:hover {
+    background-color: rgba(59, 130, 246, 0.1);
+    border-radius: 4px;
+    padding: 2px 4px;
+    margin: -2px -4px;
+  }
+  
+  /* Estilo para columnas importantes */
+  th .text-blue-400 {
+    opacity: 0.7;
+  }
+`;
+
+// Agregar estilos
+if (typeof document !== 'undefined') {
+  const existingStyle = document.getElementById('osdop-table-styles');
+  if (existingStyle) existingStyle.remove();
+  
+  const style = document.createElement('style');
+  style.id = 'osdop-table-styles';
+  style.textContent = unifiedStyles;
+  document.head.appendChild(style);
+}

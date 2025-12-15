@@ -1,3 +1,5 @@
+import { getCurrentClientId } from '@/lib/supabase-client';
+
 // Configuración escalable de costos por país MULTI-TENANT
 export interface CountryCost {
   code: string;
@@ -232,8 +234,3 @@ export const parseDurationToMinutes = (durationStr: string | null): number => {
 
 
 // ✅ NECESITAMOS ESTA FUNCIÓN - Si no existe, créala
-export const getCurrentClientId = (): string => {
-  // Usar la lógica que ya tienes en tu proyecto
-  const urlParams = new URLSearchParams(window.location.search);
-  return urlParams.get('client') || 'cliente2'; // default a cliente2
-};
